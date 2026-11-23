@@ -66,6 +66,11 @@ body {
 }
 a { color: var(--accent); }
 button, input, select { font: inherit; color: inherit; }
+body { touch-action: manipulation; }   /* no double-tap zoom */
+/* iOS zooms into form fields with text < 16px – keep them at 16px on touch devices */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px !important; }
+}
 h1, h2, h3 { margin: 0; line-height: 1.2; }
 h2 { font-size: 1.05rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -97,7 +102,11 @@ h2 { font-size: 1.05rem; }
 .dot.warn { background: var(--warn); }
 .dot.bad { background: var(--bad); }
 
-main { max-width: 1120px; margin: 0 auto; padding: 14px 16px 48px; display: grid; gap: 16px; }
+main {
+  max-width: 1120px; margin: 0 auto; padding: 14px 16px 48px; display: grid; gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+main > *, .about-body > *, .hero > * { min-width: 0; }
 .banner { max-width: 1120px; margin: 12px auto 0; padding: 0 16px; }
 .banner > div {
   padding: 10px 14px; border-radius: 12px; background: var(--warn-soft); color: var(--warn);
@@ -283,7 +292,7 @@ main { max-width: 1120px; margin: 0 auto; padding: 14px 16px 48px; display: grid
 .chart-legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
 .spark path { fill: none; stroke: var(--accent); stroke-width: 1.5; }
 .spark circle { fill: var(--deal); }
-table.data { width: 100%; border-collapse: collapse; font-size: .82rem; }
+table.data { width: 100%; border-collapse: collapse; font-size: .82rem; white-space: nowrap; }
 table.data th, table.data td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
 table.data th { color: var(--muted); font-weight: 600; }
 table.data td.num, table.data th.num { text-align: right; }
