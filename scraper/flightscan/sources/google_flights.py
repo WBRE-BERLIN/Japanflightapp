@@ -356,12 +356,15 @@ class GoogleFlightsSource:
             while time.monotonic() < end:
                 await asyncio.sleep(0.7)
                 if "/booking" in page.url:
-                    await asyncio.sleep(2.0)
-                    try:
-                        body = await page.inner_text("body")
-                        vendors = booking_vendors(body)
-                    except Exception:  # noqa: BLE001
-                        body, vendors = "", []
+                    body, vendors = "", []
+                    wait_end = time.monotonic() + 6
+                    while time.monotonic() < wait_end and not vendors:
+                        await asyncio.sleep(1.0)
+                        try:
+                            body = await page.inner_text("body")
+                            vendors = booking_vendors(body)
+                        except Exception:  # noqa: BLE001
+                            pass
                     if self.diagnose:
                         print(f"--- DIAG booking url={page.url[:200]}")
                         print("    BOOKING BODY", re.sub(r"\s*\n\s*", " | ", body)[:3000])

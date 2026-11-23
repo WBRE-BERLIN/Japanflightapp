@@ -41,3 +41,18 @@ jobs:
             debug/
             debug-smoke.log
           retention-days: 5
+      - name: Mini end-to-end run (temp folder, nothing uploaded)
+        if: success()
+        working-directory: scraper
+        run: |
+          python -m flightscan run --data /tmp/store --mode full --limit 4 --no-travelpayouts
+          python - <<'PY'
+          import json
+          d = json.load(open("/tmp/store/latest.json"))
+          print("offers:", len(d["offers"]), "coverage:", len(d["coverage"]))
+          for wid, w in d["summary"]["windows"].items():
+              b = w["best"]
+              print(wid, "best:", b and (b["price_total"], b["eff_total"], b["airlines"], b["depart"], b["ret"], b["bag"]))
+          h = json.load(open("/tmp/store/history.json"))
+          print("history days:", list(h["daily"]), "pairs:", len(h["pairs"]))
+          PY
