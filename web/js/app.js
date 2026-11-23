@@ -403,14 +403,19 @@ function offerCard(o, alts, isBest) {
   const focus = state.focus === o.id || alts.some((a) => a.id === state.focus);
   const s = o.pair_stats || {};
   const badges = [];
-  if (o.bag.status === 'included') badges.push(['good', '🧳 Bag included']);
+  const g = o.bag.source === 'Google';
+  if (o.bag.status === 'included') badges.push(['good', `🧳 Bag included${g ? ' (Google)' : ''}`]);
+  else if (g) badges.push(['warn', `🧳 1st bag ${o.bag.text} pp (Google)`]);
   else if (o.bag.status === 'extra') badges.push(['warn', `🧳 Bag extra ≈${money(o.bag.extra_est, cur())}`]);
   else badges.push(['warn', '🧳 Bag: check fare']);
   if (o._outstanding) badges.push(['deal', 'Outstanding wildcard']);
   if (s.low != null && o.price_total <= s.low + 1 && s.n > 2) badges.push(['deal', 'Lowest seen']);
   if (s.prev != null && o.price_total < s.prev - 1) badges.push(['deal', `↓ ${money(shown(s.prev - o.price_total), cur())} since last check`]);
   if (s.prev != null && o.price_total > s.prev + 1) badges.push(['', `↑ ${money(shown(o.price_total - s.prev), cur())}`]);
-  if (o.price_level) badges.push([o.price_level === 'low' ? 'good' : o.price_level === 'high' ? 'warn' : '', `Google: prices ${o.price_level}`]);
+  if (o.price_level || o.typical_range) {
+    const range = o.typical_range ? ` · usually ${money(shown(o.typical_range[0]), cur())}–${money(shown(o.typical_range[1]), cur())}` : '';
+    badges.push([o.price_level === 'low' ? 'good' : o.price_level === 'high' ? 'warn' : '', `Google: ${o.price_level ? `prices ${o.price_level}` : 'price range'}${range}`]);
+  }
   const flagText = {
     out_overnight_layover: 'Overnight layover (out)', in_overnight_layover: 'Overnight layover (return)',
     out_airport_change: 'Airport change (out)', in_airport_change: 'Airport change (return)',
@@ -440,10 +445,18 @@ function offerCard(o, alts, isBest) {
       </div>
     </div>
     ${offerLegs(o)}
+    ${vendorLine(o)}
     <div class="badges">${badges.map(([c, t]) => `<span class="badge ${c}">${esc(t)}</span>`).join('')}</div>
     <div class="o-foot"><div class="spark-box">${spark}</div><div class="links">${linkButtons(o, 1)}</div></div>
     ${alts.length ? `<details class="alts"><summary>${alts.length} more option${alts.length > 1 ? 's' : ''} for these dates</summary>${alts.map(altRow).join('')}</details>` : ''}
   </article>`;
+}
+
+function vendorLine(o) {
+  const v = (o.booking_vendors || []).filter((x) => x.name);
+  if (!v.length) return '';
+  const items = v.slice(0, 4).map((x) => `${esc(x.name)}${x.airline ? ' <span title="Airline sells directly">✈</span>' : ''}${x.phone ? ' (phone)' : ''}${x.price ? ` ${esc(fmt(x.price))}` : ''}`);
+  return `<p class="hint" style="margin:0">Sold by: ${items.join(' · ')}</p>`;
 }
 
 function altRow(o) {
@@ -548,7 +561,7 @@ function renderAbout() {
       <p><b>Aviasales</b> (optional) – cached prices other travellers found recently; good for spotting cheap dates, but verify before booking.</p></div>
     <div><h3>About bags and prices</h3>
       <p>Prices are round-trip totals for ${c.adults} in ${esc(c.currency)} incl. taxes, as shown by the sources at the time of the check. Fares change quickly.</p>
-      <p>"Bag included" is based on each airline's usual policy for its cheapest economy fare to Japan (ANA, JAL, Turkish, LOT, Gulf and Chinese carriers include a bag; Lufthansa group, Finnair, KLM/Air France and BA usually sell "Light" fares without one). For the others ≈${money(c.baggage.fee_per_bag_per_direction, c.currency)} per bag and direction is added in "Fare + bag estimate". Always check the fare on the booking page.</p></div>`;
+      <p>For the cheapest itinerary of each search the scraper opens Google's booking page and takes the real checked-bag price from there (marked "Google"). Otherwise "Bag included" is based on each airline's usual policy for its cheapest economy fare to Japan (ANA, JAL, Turkish, LOT, Gulf and Chinese carriers include a bag; Lufthansa group, Finnair, KLM/Air France and BA usually sell "Light" fares without one). For the others ≈${money(c.baggage.fee_per_bag_per_direction, c.currency)} per bag and direction is added in "Fare + bag estimate". Always check the fare on the booking page.</p></div>`;
 }
 
 function renderNoData(err) {

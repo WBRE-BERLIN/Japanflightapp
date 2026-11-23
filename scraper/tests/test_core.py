@@ -163,3 +163,17 @@ def test_demo(tmp_path: Path):
     assert data["summary"]["windows"]["may"]["best"]
     hist = json.loads((tmp_path / "history.json").read_text())
     assert len(hist["daily"]) > 20
+
+
+def test_google_bag_info_overrides_rules():
+    from flightscan.report import enrich
+    store = Store(Path("/nonexistent-dir-for-test"))
+    now = dt.datetime(2026, 11, 23, 2, 30, tzinfo=dt.timezone.utc)
+    o = offer(2000)                                 # Finnair → rules say "extra" (+300)
+    assert enrich(CFG, o, store, now.date(), now)["eff_total"] == 2300
+    o.bag_google = {"text": "€0–90", "min": 0, "max": 90}
+    d = enrich(CFG, o, store, now.date(), now)
+    assert d["bag"]["status"] == "varies" and d["bag"]["source"] == "Google" and d["eff_total"] == 2180
+    o.bag_google = {"text": "Free", "min": 0, "max": 0}
+    assert enrich(CFG, o, store, now.date(), now)["bag"]["status"] == "included"
+    assert Offer.from_dict(o.to_dict()).bag_google == o.bag_google

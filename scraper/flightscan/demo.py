@@ -75,6 +75,12 @@ def generate(cfg: Config, out_dir: Path, days_history: int = 35, seed: int = 7) 
                 flags=[], found_at=(now - dt.timedelta(hours=rnd.randint(1, 20))).isoformat().replace("+00:00", "Z"),
                 price_level=rnd.choice(["typical", "high", "typical", "low"]),
             )
+            if not offers:   # first offer per pair: pretend we opened Google's booking page
+                incl = names[0] in ("Turkish Airlines", "LOT", "Qatar Airways", "Air China", "Emirates")
+                o.bag_google = {"text": "Free" if incl else "€0–90", "min": 0, "max": 0 if incl else 90}
+                o.booking_vendors = [{"name": names[0], "price": o.price_total + 40, "airline": True, "phone": False},
+                                     {"name": "Trip.com", "price": o.price_total, "airline": False, "phone": False}]
+                o.typical_range = [round(o.price_total * 1.15, -2), round(o.price_total * 2.1, -2)]
             offers.append(o)
         store.record_search(t.key, "demo", "ok", offers, now.isoformat().replace("+00:00", "Z"), t.window)
 

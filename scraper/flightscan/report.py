@@ -16,7 +16,17 @@ def enrich(cfg: Config, o: Offer, store: Store, today: dt.date, now: dt.datetime
     d = o.to_dict()
     status, _note = al.bag_policy(o.airlines)
     extra = al.bag_extra_total(status, o.adults, cfg.bag_fee)
-    d["bag"] = {"status": status, "extra_est": extra}
+    src = "airline rules"
+    g = o.bag_google
+    if g and g.get("max") is not None:
+        # Google's figure is per passenger for the whole trip
+        src = "Google"
+        if g["max"] == 0:
+            status, extra = "included", 0.0
+        else:
+            status = "extra" if (g.get("min") or 0) > 0 else "varies"
+            extra = round(g["max"] * o.adults, 2)
+    d["bag"] = {"status": status, "extra_est": extra, "source": src, "text": g.get("text") if g else None}
     d["eff_total"] = round(o.price_total + extra, 2)
     d["strict_ok"] = offer_ok(o, cfg.filters)
     ts = parse_ts(o.found_at)

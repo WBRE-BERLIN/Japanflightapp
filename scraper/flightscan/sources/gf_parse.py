@@ -229,13 +229,38 @@ def price_level(page_text: str) -> str | None:
     return m.group(1).lower() if m else None
 
 
-_VENDOR = re.compile(r"Book with\s+([^\n€]+?)\s*(?:\n|€|$)", re.I)
+_BAG = re.compile(r"1st checked bag per passenger:\s*([^\n|]+)", re.I)
+_TYPICAL = re.compile(r"usually cost between\s*€\s?([\d.,]+)\s*[–-]\s*€?\s?([\d.,]+)", re.I)
+_VENDOR_LINE = re.compile(r"^(?:Book with\s+(?P<book>.+?)|Call\s+(?P<call>.+?)\s+to book)(?P<air>Airline)?$")
+_EUR_LINE = re.compile(r"^€\s?[\d.,]+$")
+
+
+def booking_details(page_text: str) -> dict:
+    """Parse Google's booking page: sellers, baggage cost, usual price range."""
+    text = page_text or ""
+    lines = [norm(l) for l in text.splitlines() if norm(l)]
+    vendors: list[dict] = []
+    for i, line in enumerate(lines):
+        m = _VENDOR_LINE.match(line)
+        if not m:
+            continue
+        price = next((parse_price(x) for x in lines[i + 1: i + 5] if _EUR_LINE.match(x)), None)
+        name = (m.group("book") or m.group("call")).strip()
+        if name and len(name) < 60 and not any(v["name"] == name for v in vendors):
+            vendors.append({"name": name, "price": price, "airline": bool(m.group("air")), "phone": bool(m.group("call"))})
+    out: dict = {"vendors": vendors[:8]}
+    bag = _BAG.search(text)
+    if bag:
+        raw = norm(bag.group(1))
+        nums = [float(re.sub(r"[.,](?=\d{3}\b)", "", n)) for n in re.findall(r"\d[\d.,]*", raw)]
+        free = "free" in raw.lower() or (nums and max(nums) == 0)
+        out["bag"] = {"text": raw, "min": 0.0 if free else (min(nums) if nums else None),
+                      "max": 0.0 if free else (max(nums) if nums else None)}
+    typ = _TYPICAL.search(text)
+    if typ:
+        out["typical"] = [parse_price("€" + typ.group(1)), parse_price("€" + typ.group(2))]
+    return out
 
 
 def booking_vendors(page_text: str) -> list[str]:
-    out: list[str] = []
-    for m in _VENDOR.finditer(page_text or ""):
-        v = norm(m.group(1))
-        if v and v not in out and len(v) < 60:
-            out.append(v)
-    return out[:8]
+    return [v["name"] for v in booking_details(page_text)["vendors"]]

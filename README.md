@@ -34,8 +34,8 @@ Configured in [`config.toml`](config.toml), edited directly on GitHub:
 > every option. That is why the app's default is 19 h; the filter goes down to 16 h.
 
 Every night (~03:17 Berlin) all ~160 date/destination combinations are searched. At midday
-the cheapest ~24 are checked again. With all three windows in your config, a full run takes
-about 15–25 minutes.
+the cheapest ~24 are checked again. One search, including opening the return flights and the
+booking page, takes 25–40 s. With 3 parallel tabs a full run takes about 30 minutes.
 
 ### Where the prices come from
 
@@ -57,9 +57,17 @@ to the airlines' own booking pages.
 
 Google shows the **cheapest** fare. For Lufthansa group, Finnair, KLM/Air France and BA that is
 usually a "Light" fare **without** a checked bag. ANA, JAL, Turkish, LOT, Gulf and Chinese
-airlines include one. The app marks every offer (🧳 included / extra / check) and, by default,
-ranks by **fare + bag estimate** (75 € per bag and direction, set in `config.toml`). You can
-switch to "Fare only" and "Bag included only" in the filters.
+airlines include one.
+
+* For the cheapest itinerary of every search the scraper opens Google's booking page and takes
+  the **real price of the first checked bag** from it (e.g. "€0–90 per passenger", marked
+  "Google"). The same page also lists who sells the ticket (airline ✈ or agency, with prices)
+  and Google's usual price range for similar trips.
+* For all other offers the airline's usual policy is used, plus an estimate of 75 € per bag and
+  direction (set in `config.toml`).
+
+The app ranks by **fare + bag cost** by default. You can switch to "Fare only" and
+"Bag included only" in the filters.
 
 ## Setup (one time, ~30 minutes)
 
@@ -85,7 +93,9 @@ If you work with both accounts on one computer:
 * **gh CLI:** `gh auth login` with both accounts, then `gh auth switch` when needed.
 
 The repository is private. Private repos include **2,000 free Actions minutes per month**.
-This scraper uses about 600–900, so it fits. If you make the repo public, minutes are unlimited.
+The scraper needs about 1,100–1,300 of them (≈35 min each night plus ≈7 min at midday). To
+use fewer, lower `refresh_top_n` or remove the midday schedule in `.github/workflows/scrape.yml`.
+If you make the repository public, Actions minutes are unlimited.
 
 ### 2. all-inkl: subdomain + FTP user
 

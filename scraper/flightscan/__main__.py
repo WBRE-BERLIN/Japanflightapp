@@ -105,7 +105,7 @@ def _smoke(cfg, debug_dir: Path, n: int) -> int:
             for off in o.offers:
                 d = off.to_dict()
                 print(json.dumps({k: d[k] for k in ("price_total", "airlines", "flags", "booking_vendors",
-                                                    "price_level")}, ensure_ascii=False))
+                                                    "price_level", "bag_google", "typical_range")}, ensure_ascii=False))
                 for leg in ("outbound", "inbound"):
                     print("  ", leg, json.dumps(d[leg], ensure_ascii=False))
                 print("   links:", [l["kind"] for l in d["links"]])

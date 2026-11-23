@@ -137,3 +137,46 @@ def test_real_google_rows():
         assert p.leg.stops == 1
         assert (p.leg.layovers[0].airport, p.leg.layovers[0].duration_min) == exp["lay"]
         assert p.leg.arr_time == exp["arr_time"]
+
+
+BOOKING_PAGE = """Itinerary summary
+Share
+€2,301
+Lowest total price
+Selected flights
+Sat, May 15
+1:50 PM
+Finnair, JALBritish Airways
+1 free carry-on per passenger
+First checked bag costs between 0 euros and 90 euros per passenger
+1st checked bag per passenger: €0–90
+Baggage prices apply to your entire trip. Bag fees may be higher at the airport.
+Booking options
+Book with JALAirline
+€2,777
+Continue
+Call British Airways to bookAirline
+Price includes an estimated airline phone service fee of €80
+€2,301
+Call airline
+Book with Tripado
+€2,797
+Continue
+Price insights
+€2,301 is low for Economy — €1,240 cheaper than usual
+The least expensive flights for similar trips to Tokyo usually cost between €2,900–5,600.
+"""
+
+
+def test_booking_details():
+    from flightscan.sources.gf_parse import booking_details
+    d = booking_details(BOOKING_PAGE)
+    assert d["vendors"] == [
+        {"name": "JAL", "price": 2777, "airline": True, "phone": False},
+        {"name": "British Airways", "price": 2301, "airline": True, "phone": True},
+        {"name": "Tripado", "price": 2797, "airline": False, "phone": False},
+    ]
+    assert d["bag"] == {"text": "€0–90", "min": 0, "max": 90}
+    assert d["typical"] == [2900, 5600]
+    free = booking_details("1st checked bag per passenger: Free\n")
+    assert free["bag"]["max"] == 0

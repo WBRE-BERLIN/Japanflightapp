@@ -69,8 +69,10 @@ class Offer:
     flags: list[str] = field(default_factory=list)
     found_at: str = ""
     price_level: str | None = None          # Google's "low / typical / high"
-    booking_vendors: list[str] = field(default_factory=list)
+    booking_vendors: list[dict] = field(default_factory=list)   # {name, price, airline, phone}
     price_is_estimate: bool = False          # e.g. cached per-person price × adults
+    bag_google: dict | None = None           # Google's "1st checked bag per passenger" {text, min, max}
+    typical_range: list | None = None        # Google's usual price range for similar trips
 
     @property
     def pair(self) -> str:
@@ -134,8 +136,10 @@ class Offer:
             flags=list(d.get("flags", [])),
             found_at=d.get("found_at", ""),
             price_level=d.get("price_level"),
-            booking_vendors=list(d.get("booking_vendors", [])),
+            booking_vendors=[v if isinstance(v, dict) else {"name": v} for v in d.get("booking_vendors", [])],
             price_is_estimate=bool(d.get("price_is_estimate", False)),
+            bag_google=d.get("bag_google"),
+            typical_range=d.get("typical_range"),
         )
 
 

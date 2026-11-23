@@ -11,6 +11,7 @@ searches, and it stops immediately when Google asks for a captcha.
 from __future__ import annotations
 
 import asyncio
+import json
 import datetime as dt
 import logging
 import random
@@ -23,7 +24,7 @@ from ..config import Config, Limits
 from ..filters import leg_flags, leg_ok
 from ..links import build_links
 from ..models import Offer, SearchTask, utcnow_iso
-from .gf_parse import ParsedOption, booking_vendors, parse_option, price_level
+from .gf_parse import ParsedOption, booking_details, parse_option, price_level
 from .tfs import google_search_url
 
 log = logging.getLogger(__name__)
@@ -193,11 +194,14 @@ class GoogleFlightsSource:
                 continue
             built = [self._offer(task, cand, r, r.price_total, level, url) for r in chosen]
             if i == 0 and cfg.scrape.fetch_booking_link:
-                booking, vendors = await self._open_booking(page, chosen[0].aria)
+                booking, details = await self._open_booking(page, chosen[0].aria)
                 if booking:
                     built[0].links.insert(0, {"kind": "google_booking", "label": "Book (Google Flights)",
                                               "url": booking})
-                    built[0].booking_vendors = vendors
+                    built[0].booking_vendors = details.get("vendors", [])
+                    built[0].bag_google = details.get("bag")
+                    for b in built:
+                        b.typical_range = details.get("typical")
             offers.extend(built)
         return SearchOutcome(task, "ok", offers=offers, counts=counts)
 
@@ -348,31 +352,31 @@ class GoogleFlightsSource:
                 print(f"--- DIAG select via {method}: no return rows (url changed: {page.url != before})")
         return None
 
-    async def _open_booking(self, page, aria: str) -> tuple[str | None, list[str]]:
+    async def _open_booking(self, page, aria: str) -> tuple[str | None, dict]:
         for method in ("dom", "force"):
             if not await self._click(page, aria, method):
                 continue
-            end = time.monotonic() + 12
+            end = time.monotonic() + 12  # wait for navigation
             while time.monotonic() < end:
                 await asyncio.sleep(0.7)
                 if "/booking" in page.url:
-                    body, vendors = "", []
-                    wait_end = time.monotonic() + (14 if self.diagnose else 6)
-                    while time.monotonic() < wait_end and not vendors:
+                    body, details = "", {"vendors": []}
+                    wait_end = time.monotonic() + 12
+                    while time.monotonic() < wait_end and not details["vendors"]:
                         await asyncio.sleep(1.0)
                         try:
                             body = await page.inner_text("body")
-                            vendors = booking_vendors(body)
+                            details = booking_details(body)
                         except Exception:  # noqa: BLE001
                             pass
                     if self.diagnose:
                         print(f"--- DIAG booking url={page.url[:200]}")
-                        print("    BOOKING BODY", re.sub(r"\s*\n\s*", " | ", body)[:3000])
-                    return page.url, vendors
+                        print("    BOOKING", json.dumps(details, ensure_ascii=False))
+                    return page.url, details
         if self.diagnose:
             print(f"--- DIAG booking: no /booking url, now {page.url}")
             await self._dump(page, "booking")
-        return None, []
+        return None, {}
 
     async def _dump(self, page, kind: str):
         """Print what the page looks like (used by the smoke test, artifacts may be unreachable)."""
