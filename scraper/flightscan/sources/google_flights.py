@@ -72,8 +72,9 @@ class GoogleFlightsSource:
     name = "google_flights"
 
     def __init__(self, cfg: Config, *, debug_dir: Path | None = None, headless: bool = True,
-                 tfs_max_stops: int | None = 1):
+                 tfs_max_stops: int | None = 1, diagnose: bool = False):
         self.cfg = cfg
+        self.diagnose = diagnose
         self.debug_dir = debug_dir
         self.headless = headless
         self.tfs_max_stops = tfs_max_stops
@@ -303,7 +304,28 @@ class GoogleFlightsSource:
                 return page.url, vendors
         return None, []
 
+    async def _dump(self, page, kind: str):
+        """Print what the page looks like (used by the smoke test, artifacts may be unreachable)."""
+        try:
+            body = await page.inner_text("body")
+            m = NO_RESULTS.search(body)
+            info = await page.evaluate("""() => {
+                const all = [...document.querySelectorAll('[aria-label]')].map(e => e.tagName + ': ' + e.getAttribute('aria-label'));
+                return {lis: document.querySelectorAll('li').length, aria: all.length,
+                        sample: all.filter(a => a.length > 40).slice(0, 25).map(a => a.slice(0, 400))};
+            }""")
+            print(f"--- DIAG {kind}: url={page.url}\n    title={await page.title()!r}\n"
+                  f"    no_results_match={m.group(0) if m else None!r} li={info['lis']} aria={info['aria']}")
+            for a in info["sample"]:
+                print("    ARIA", a)
+            txt = re.sub(r"\n\s*\n+", "\n", body)[:3500]
+            print("    BODY", txt.replace("\n", " | "))
+        except Exception as e:  # noqa: BLE001
+            print("--- DIAG failed", e)
+
     async def _save_debug(self, page, task: SearchTask, kind: str):
+        if self.diagnose:
+            await self._dump(page, kind)
         if not self.debug_dir or self._debug_saved >= 6:
             return
         self._debug_saved += 1

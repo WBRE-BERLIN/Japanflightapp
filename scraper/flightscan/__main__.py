@@ -98,7 +98,7 @@ def _smoke(cfg, debug_dir: Path, n: int) -> int:
     picked = picked[:n]
     ok = False
     for stops in (1, None):
-        src = GoogleFlightsSource(cfg, debug_dir=debug_dir, tfs_max_stops=stops)
+        src = GoogleFlightsSource(cfg, debug_dir=debug_dir, tfs_max_stops=stops, diagnose=True)
         res = asyncio.run(src.run(picked, time.monotonic() + 600))
         for o in res:
             print(f"\n=== {o.task.key} [{o.status}] {o.seconds}s counts={o.counts} {o.message}")
