@@ -357,7 +357,7 @@ class GoogleFlightsSource:
                 await asyncio.sleep(0.7)
                 if "/booking" in page.url:
                     body, vendors = "", []
-                    wait_end = time.monotonic() + 6
+                    wait_end = time.monotonic() + (14 if self.diagnose else 6)
                     while time.monotonic() < wait_end and not vendors:
                         await asyncio.sleep(1.0)
                         try:
