@@ -34,7 +34,8 @@ GOOGLE_ERROR = re.compile(r"something went wrong", re.I)
 
 class TransientError(Exception):
     """Google showed 'Oops, something went wrong'."""
-ROW_SELECTOR = '[aria-label*="Leaves "]'
+# the main row element; each result also has shorter "Leaves …" labels (times, details button)
+ROW_SELECTOR = '[aria-label*="Leaves "][aria-label*="Total duration"]'
 
 
 class Blocked(Exception):
@@ -268,10 +269,9 @@ class GoogleFlightsSource:
                     parsed.append(p)
             n = len(parsed)
             if n == 0:
-                body = await page.inner_text("body")
-                if GOOGLE_ERROR.search(body):
+                if await self._visible(page, GOOGLE_ERROR):
                     raise TransientError("Google: something went wrong")
-                if NO_RESULTS.search(body) and "Loading results" not in body and time.monotonic() > end - timeout + 6:
+                if time.monotonic() > end - timeout + 6 and await self._visible(page, NO_RESULTS):
                     return []
                 self._check_blocked(page.url, await page.title())
             stable = stable + 1 if n == last and n > 0 else 0
@@ -284,6 +284,16 @@ class GoogleFlightsSource:
                         continue
                 return parsed
         return parsed or None
+
+    async def _visible(self, page, pattern: re.Pattern) -> bool:
+        loc = page.get_by_text(pattern)
+        try:
+            for i in range(min(await loc.count(), 4)):
+                if await loc.nth(i).is_visible():
+                    return True
+        except Exception:  # noqa: BLE001
+            pass
+        return False
 
     async def _expand(self, page) -> bool:
         btn = page.get_by_role("button", name=re.compile(r"more flights", re.I))
@@ -355,7 +365,7 @@ class GoogleFlightsSource:
         print(f"--- DIAG rows {kind}: {len(rows)} rows, {uniq} unique aria labels, url={page.url[:160]}")
         shown = 0
         for r in rows:
-            if shown >= 8:
+            if shown >= 4:
                 break
             shown += 1
             print("    ROW ARIA", r["aria"][:700])
