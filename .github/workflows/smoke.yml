@@ -45,7 +45,7 @@ jobs:
         if: success()
         working-directory: scraper
         run: |
-          python -m flightscan run --data /tmp/store --mode full --limit 4 --no-travelpayouts
+          python -m flightscan run --data /tmp/store --mode full --limit 12 --no-travelpayouts
           python - <<'PY'
           import json
           d = json.load(open("/tmp/store/latest.json"))
