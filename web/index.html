@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Japan Flight Watch</title>
+  <meta name="description" content="Cheapest one-stop round trips Berlin → Tokyo / Osaka, checked twice a day.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#f4f1eb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f1318" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="JP Flights">
+  <link rel="stylesheet" href="css/app.css">
+  <script>
+    try { const t = JSON.parse(localStorage.getItem('jfw.theme') || '"auto"'); if (t !== 'auto') document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="16" fill="#23407a"/>
+        <circle cx="32" cy="32" r="13" fill="#e0472f"/>
+        <path d="M14 41c9-3 22-9 34-19l3 2c-10 11-22 18-35 21z" fill="#fff"/>
+      </svg>
+      <div>
+        <h1>Japan Flight Watch</h1>
+        <p id="subtitle">Berlin → Tokyo · Osaka</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="updated" class="chip" title="Last scrape"><span class="dot warn"></span>loading…</span>
+      <button id="btn-settings" class="icon-btn" aria-label="Settings and notifications" title="Settings &amp; notifications">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main>
+    <section id="hero" class="panel hero" aria-live="polite"><p class="hero-empty">Loading flight data…</p></section>
+
+    <section id="windows" class="windows" aria-label="Travel windows"></section>
+
+    <section id="filters" class="panel filters" aria-label="Filters"></section>
+
+    <section class="panel" id="calendar-panel">
+      <div class="panel-head">
+        <h2>Price calendar</h2>
+        <p>Cheapest per departure day × nights · tap a day to see its flights</p>
+      </div>
+      <div id="calendar"></div>
+    </section>
+
+    <section id="list-panel" aria-label="Flights">
+      <div class="list-head">
+        <h2 id="list-title">Cheapest flights</h2>
+        <span id="count" class="count"></span>
+      </div>
+      <div id="pair-filter"></div>
+      <div id="offers" class="offers"></div>
+      <div style="text-align:center;margin-top:12px"><button id="more" class="btn" hidden>Show more</button></div>
+    </section>
+
+    <section class="panel" id="history-panel">
+      <div class="panel-head">
+        <h2>Price history</h2>
+        <p>Daily cheapest within the default filters</p>
+      </div>
+      <div id="history"></div>
+      <details style="margin-top:10px"><summary class="hint" style="cursor:pointer">Show as table</summary><div id="history-table" class="scroll-x"></div></details>
+    </section>
+
+    <section class="panel">
+      <details class="about" id="about">
+        <summary>Scraper status, sources &amp; notes</summary>
+        <div class="about-body" id="about-body"></div>
+      </details>
+    </section>
+  </main>
+
+  <dialog id="settings" aria-labelledby="settings-title">
+    <div class="dlg-head">
+      <h2 id="settings-title">Notifications &amp; settings</h2>
+      <button class="icon-btn" data-close aria-label="Close">✕</button>
+    </div>
+    <div class="dlg-body">
+      <section>
+        <h3>Daily notification</h3>
+        <div id="push-status" class="status-line">Checking…</div>
+        <p id="ios-hint" class="hint" hidden>On iPhone/iPad: tap <b>Share → Add to Home Screen</b> first, then open the app from the home screen to enable notifications (iOS 16.4+).</p>
+        <label class="form-row">Send me the cheapest flight every day at
+          <input type="time" id="p-time" value="08:00" required>
+        </label>
+        <div class="form-row"><span>Include</span><span id="p-windows" class="frow"></span></div>
+        <label class="form-row">Instant alert when a trip for 2 (incl. bag estimate) drops below
+          <span><input type="number" id="p-alert" min="0" step="50" placeholder="e.g. 1800"> €</span>
+        </label>
+        <label class="form-row" id="p-token-row" hidden>App code
+          <input type="text" id="p-token" autocomplete="off" placeholder="from your setup">
+        </label>
+        <div class="btn-row">
+          <button class="btn primary" id="p-enable">Enable notifications</button>
+          <button class="btn" id="p-test" hidden>Send test</button>
+          <button class="btn ghost" id="p-disable" hidden>Turn off on this device</button>
+        </div>
+        <p class="hint">Each device (both phones) registers on its own. Times use this device's time zone.</p>
+      </section>
+      <section>
+        <h3>Display</h3>
+        <div class="form-row"><span>Theme</span>
+          <span class="seg" id="s-theme">
+            <button data-v="auto">Auto</button><button data-v="light">Light</button><button data-v="dark">Dark</button>
+          </span>
+        </div>
+        <div class="form-row"><span>Reset filters to defaults</span><button class="btn" id="s-reset">Reset</button></div>
+      </section>
+    </div>
+  </dialog>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# Only needed if your all-inkl plan has no cron jobs and you don't use cron-job.org.
+# Uncomment the schedule. Note: each run costs ~1 Actions minute (private repos have 2000/month).
+name: Notification tick (fallback)
+
+on:
+  # schedule:
+  #   - cron: "*/30 5-21 * * *"
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call cron.php
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_KEY: ${{ secrets.CRON_KEY }}
+        run: |
+          curl -fsS --max-time 90 -H "X-Cron-Key: $CRON_KEY" "${SITE_URL%/}/api/cron.php"

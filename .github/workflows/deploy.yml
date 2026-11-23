@@ -1,0 +1,67 @@
+name: Deploy web app
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/deploy.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USER: ${{ secrets.FTP_USER }}
+      LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      FTP_DIR: ${{ secrets.FTP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        run: |
+          for v in FTP_HOST FTP_USER LFTP_PASSWORD; do
+            if [ -z "${!v}" ]; then echo "::error::Secret ${v/LFTP_PASSWORD/FTP_PASSWORD} is not set (see README)"; exit 1; fi
+          done
+          if [ -z "${{ secrets.CRON_KEY }}" ]; then echo "::warning::CRON_KEY not set – notifications will not be sent"; fi
+
+      - name: Write server config from secrets
+        env:
+          CRON_KEY: ${{ secrets.CRON_KEY }}
+          APP_TOKEN: ${{ secrets.APP_TOKEN }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+        run: |
+          php -r 'file_put_contents("web/api/config.local.php", "<?php\nreturn " . var_export([
+            "cron_key" => (string)getenv("CRON_KEY"),
+            "app_token" => (string)getenv("APP_TOKEN"),
+            "vapid_subject" => (string)getenv("VAPID_SUBJECT"),
+          ], true) . ";\n");'
+          sed -i "s/__BUILD__/${GITHUB_SHA::8}/" web/sw.js
+          rm -f web/data/*.json
+
+      - name: Get latest data (if any)
+        run: |
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            git fetch -q --depth 1 origin data
+            git show FETCH_HEAD:latest.json > web/data/latest.json || true
+            git show FETCH_HEAD:history.json > web/data/history.json || true
+          fi
+
+      - name: Upload via FTPS
+        run: |
+          sudo apt-get install -y -qq lftp >/dev/null
+          # No --delete: never removes anything else in the target folder.
+          lftp --env-password -u "$FTP_USER" "ftp://$FTP_HOST" -e "
+            set ftp:ssl-force true; set ssl:verify-certificate yes; set net:max-retries 3;
+            mkdir -pf '${FTP_DIR:-/}';
+            mirror -R --no-perms --parallel=4 --exclude-glob api/storage/* web '${FTP_DIR:-/}';
+            mkdir -pf '${FTP_DIR:-/}/api/storage';
+            put web/api/storage/.htaccess -o '${FTP_DIR:-/}/api/storage/.htaccess';
+            bye"

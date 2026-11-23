@@ -1,0 +1,92 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Japan Flight Watch – search configuration
+#  Edit this file (e.g. directly on github.com). The next scrape run uses it.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[trip]
+origin   = ["BER"]          # Berlin Brandenburg
+adults   = 2
+cabin    = "economy"        # economy | premium_economy | business
+currency = "EUR"
+
+# Destination "cities" and the international airports that belong to them.
+[destinations.TYO]
+name     = "Tokyo"
+airports = ["HND", "NRT"]
+
+[destinations.OSA]
+name     = "Osaka"
+airports = ["KIX"]
+
+# ── Travel windows ──────────────────────────────────────────────────────────
+# Every combination of departure day × trip length (nights) is searched.
+# Golden Week 2027 ends Wed 5 May → departures from Fri 7 May.
+[[windows]]
+id            = "may"
+label         = "May 2027 · after Golden Week"
+depart_from   = 2027-05-07
+depart_to     = 2027-05-20
+latest_return = 2027-06-01
+nights        = [10, 11, 12]
+
+# "Last three weeks of October": 10 Oct – 1 Nov.
+[[windows]]
+id            = "oct"
+label         = "October 2027 · last three weeks"
+depart_from   = 2027-10-10
+depart_to     = 2027-10-21
+latest_return = 2027-11-01
+nights        = [10, 11, 12]
+
+# ── Wildcards: outstandingly cheap trips outside the two windows ────────────
+[wildcards]
+enabled          = true
+from             = 2027-01-15
+to               = 2027-12-15
+nights           = [10, 11, 12]
+# Japanese holiday peaks – never interesting, skipped.
+exclude          = [
+  [2027-04-24, 2027-05-06],   # Golden Week
+  [2027-08-07, 2027-08-18],   # Obon
+  [2027-12-20, 2028-01-05],   # New Year
+]
+min_saving_pct   = 15          # show only if ≥15 % cheaper than the best window price
+samples_per_run  = 6           # Google Flights searches per run (rotates through the year)
+
+# ── Hard limits while scraping (generous – the app filters more strictly) ──
+[constraints]
+max_stops           = 1
+max_layover_hours   = 6
+max_duration_hours  = 24      # per direction, door-to-door airport time
+allow_self_transfer = false   # "separate tickets" itineraries are dropped
+
+# ── Default filters in the app, for notifications and for price history ────
+# NOTE: since Russian airspace is closed for EU carriers, a one-stop trip
+# Berlin → Japan takes ~16–19 h. A 16 h cap filters out almost everything.
+[filters]
+max_layover_hours  = 4
+max_duration_hours = 19
+
+# ── Checked baggage ─────────────────────────────────────────────────────────
+# Cheapest "Light/Basic" long-haul fares of some airlines (Lufthansa group,
+# Finnair, KLM/Air France, BA …) exclude checked bags. The app adds this
+# estimate per person and direction so prices are comparable.
+[baggage]
+fee_per_bag_per_direction = 75
+
+# ── Scraper behaviour ───────────────────────────────────────────────────────
+[scrape]
+concurrency          = 3      # parallel browser tabs
+full_run_hours_utc   = [0, 1, 2, 3, 4, 5]   # runs starting then do a full sweep
+refresh_top_n        = 24     # other runs only re-check the cheapest N date pairs
+outbound_candidates  = 2      # how many outbound flights to open per search
+fetch_booking_link   = true   # open the cheapest itinerary to get its direct booking page
+max_runtime_minutes  = 40
+max_days_ahead       = 355    # airlines publish schedules ~11 months ahead
+stale_after_hours    = 60
+google_hl            = "en"
+google_gl            = "de"
+
+[sources]
+google_flights = true
+travelpayouts  = true         # needs the TRAVELPAYOUTS_TOKEN secret (free), skipped otherwise
