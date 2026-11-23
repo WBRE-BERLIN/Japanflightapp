@@ -181,10 +181,7 @@ class GoogleFlightsSource:
             if i > 0:
                 await self._open(page, url)
                 await self._wait_options(page, task.depart, set(cfg.origin), expand=True)
-            if not await self._click(page, cand.aria):
-                offers.append(self._offer(task, cand, None, cand.price_total, level, url))
-                continue
-            rets = await self._wait_options(page, task.ret, set(dest_airports), expand=True, timeout=20)
+            rets = await self._select(page, cand.aria, task.ret, set(dest_airports))
             counts[f"ret{i}"] = len(rets or [])
             if self.diagnose and i == 0:
                 await self._dump_rows(page, "return")
@@ -307,42 +304,64 @@ class GoogleFlightsSource:
             pass
         return False
 
-    async def _click(self, page, aria: str) -> bool:
+    _VISIBLE_JS = """(e) => { const r = e.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && (e.checkVisibility ? e.checkVisibility() : !!e.offsetParent); }"""
+
+    async def _click(self, page, aria: str, method: str = "dom") -> bool:
+        """Click the visible result row with this aria-label."""
         idx = await page.eval_on_selector_all(
             ROW_SELECTOR,
-            """(els, a) => els.findIndex(e => {
-                if (e.getAttribute('aria-label') !== a) return false;
-                const r = e.getBoundingClientRect();
-                return r.width > 0 && r.height > 0 && (e.checkVisibility ? e.checkVisibility() : !!e.offsetParent);
-            })""",
+            f"(els, a) => {{ const vis = {self._VISIBLE_JS}; "
+            "return els.findIndex(e => e.getAttribute('aria-label') === a && vis(e)); }",
             aria,
         )
         if idx is None or idx < 0:
             if self.diagnose:
                 print(f"--- DIAG click: aria not found ({aria[:120]!r})")
             return False
+        loc = page.locator(ROW_SELECTOR).nth(idx)
         try:
-            await page.locator(ROW_SELECTOR).nth(idx).click(timeout=10_000)
+            if method == "dom":
+                await loc.evaluate("e => { e.scrollIntoView({block: 'center'}); e.click(); }")
+            elif method == "force":
+                await loc.scroll_into_view_if_needed(timeout=5_000)
+                await loc.click(force=True, timeout=5_000)
+            else:
+                await loc.focus(timeout=5_000)
+                await page.keyboard.press("Enter")
             return True
         except Exception as e:  # noqa: BLE001
-            log.debug("click failed: %s", e)
             if self.diagnose:
-                print(f"--- DIAG click failed: {e}"[:600])
+                print(f"--- DIAG click ({method}) failed: {e}"[:900])
             return False
 
+    async def _select(self, page, aria: str, ref_date: dt.date, dep_codes: set[str]) -> list[ParsedOption] | None:
+        """Select an outbound flight and return the parsed return options (None if it did not work)."""
+        for method in ("dom", "force", "enter"):
+            before = page.url
+            if not await self._click(page, aria, method):
+                continue
+            rets = await self._wait_options(page, ref_date, dep_codes, expand=True, timeout=15)
+            if rets:
+                return rets
+            if self.diagnose:
+                print(f"--- DIAG select via {method}: no return rows (url changed: {page.url != before})")
+        return None
+
     async def _open_booking(self, page, aria: str) -> tuple[str | None, list[str]]:
-        if not await self._click(page, aria):
-            return None, []
-        end = time.monotonic() + 15
-        while time.monotonic() < end:
-            await asyncio.sleep(0.7)
-            if "/booking" in page.url:
-                await asyncio.sleep(2.0)
-                try:
-                    vendors = booking_vendors(await page.inner_text("body"))
-                except Exception:  # noqa: BLE001
-                    vendors = []
-                return page.url, vendors
+        for method in ("dom", "force"):
+            if not await self._click(page, aria, method):
+                continue
+            end = time.monotonic() + 12
+            while time.monotonic() < end:
+                await asyncio.sleep(0.7)
+                if "/booking" in page.url:
+                    await asyncio.sleep(2.0)
+                    try:
+                        vendors = booking_vendors(await page.inner_text("body"))
+                    except Exception:  # noqa: BLE001
+                        vendors = []
+                    return page.url, vendors
         if self.diagnose:
             print(f"--- DIAG booking: no /booking url, now {page.url}")
             await self._dump(page, "booking")
