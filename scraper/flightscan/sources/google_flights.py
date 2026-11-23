@@ -248,9 +248,11 @@ class GoogleFlightsSource:
         return await page.eval_on_selector_all(
             ROW_SELECTOR,
             """els => els.map((el, i) => {
+                const r = el.getBoundingClientRect();
+                const vis = r.width > 0 && r.height > 0 && (el.checkVisibility ? el.checkVisibility() : !!el.offsetParent);
                 const li = el.closest('li') || el.parentElement || el;
-                return {i, aria: el.getAttribute('aria-label') || '', text: li.innerText || ''};
-            })""",
+                return {i, vis, aria: el.getAttribute('aria-label') || '', text: vis ? (li.innerText || '') : ''};
+            }).filter(r => r.vis)""",
         )
 
     async def _wait_options(self, page, ref_date: dt.date, dep_codes: set[str], *, expand=False,
@@ -307,7 +309,13 @@ class GoogleFlightsSource:
 
     async def _click(self, page, aria: str) -> bool:
         idx = await page.eval_on_selector_all(
-            ROW_SELECTOR, "(els, a) => els.findIndex(e => e.getAttribute('aria-label') === a)", aria
+            ROW_SELECTOR,
+            """(els, a) => els.findIndex(e => {
+                if (e.getAttribute('aria-label') !== a) return false;
+                const r = e.getBoundingClientRect();
+                return r.width > 0 && r.height > 0 && (e.checkVisibility ? e.checkVisibility() : !!e.offsetParent);
+            })""",
+            aria,
         )
         if idx is None or idx < 0:
             if self.diagnose:

@@ -92,3 +92,48 @@ def test_helpers():
     assert airport_code("Unknown Field") == "Unknown Field"
     assert price_level("Prices are currently typical for your search") == "typical"
     assert booking_vendors("Book with Finnair\n€1,846\nBook with Trip.com\n€1,790") == ["Finnair", "Trip.com"]
+
+
+# ── real rows captured from Google Flights (Nov 2026) ──────────────────────
+REAL = [
+    (
+        "From 2056 euros round trip total. 1 stop flight with Austrian. Operated by Air Baltic. Leaves Berlin "
+        "Brandenburg Airport at 7:45 PM on Saturday, May 15 and arrives at Narita International Airport at "
+        "8:50 AM on Monday, May 17. Total duration 30 hr 5 min.  Layover (1 of 1) is a 16 hr 35 min layover at "
+        "Vienna International Airport in Vienna. Select flight",
+        "7:45 PM\n – \n8:50 AM+2\nAustrianOperated by Air Baltic\n30 hr 5 min\nBER–NRT\n1 stop\n"
+        "16 hr 35 min VIE\n1,302 kg CO2e\nAvg emissions\n€2,056\nround trip",
+        dict(price=2056, arr="NRT", dur=30 * 60 + 5, air=["Austrian"], lay=("VIE", 995), arr_time="2027-05-17T08:50"),
+    ),
+    (
+        "From 1887 euros round trip total. 1 stop flight with Condor and Etihad. Leaves Berlin Brandenburg Airport "
+        "at 4:40 PM on Saturday, May 15 and arrives at Kansai International Airport at 11:50 AM on Monday, "
+        "May 17. Total duration 36 hr 10 min.  Layover (1 of 1) is a 20 hr 10 min layover at Zayed International "
+        "Airport in Abu Dhabi. Select flight",
+        "4:40 PM\n – \n11:50 AM+2\nCondor, Etihad\n36 hr 10 min\nBER–KIX\n1 stop\n20 hr 10 min AUH\n"
+        "1,533 kg CO2e\n+19% emissions\n€1,887\nround trip",
+        dict(price=1887, arr="KIX", dur=36 * 60 + 10, air=["Condor", "Etihad"], lay=("AUH", 1210),
+             arr_time="2027-05-17T11:50"),
+    ),
+    (
+        "From 2374 euros round trip total. 1 stop flight with British Airways. Leaves Berlin Brandenburg Airport at "
+        "6:40 AM on Saturday, May 15 and arrives at Haneda Airport at 7:00 AM on Sunday, May 16. Total "
+        "duration 17 hr 20 min.  Layover (1 of 1) is a 1 hr 40 min layover at Heathrow Airport in London. Select flight",
+        "6:40 AM\n – \n7:00 AM+1\nBritish AirwaysIberia, JAL\n17 hr 20 min\nBER–HND\n1 stop\n"
+        "1 hr 40 min LHR\n1,241 kg CO2e\nAvg emissions\n€2,374\nround trip",
+        dict(price=2374, arr="HND", dur=17 * 60 + 20, air=["British Airways"], lay=("LHR", 100),
+             arr_time="2027-05-16T07:00"),
+    ),
+]
+
+
+def test_real_google_rows():
+    for aria, text, exp in REAL:
+        p = parse_option(aria, text, dt.date(2027, 5, 15))
+        assert p.price_total == exp["price"]
+        assert p.leg.dep_airport == "BER" and p.leg.arr_airport == exp["arr"]
+        assert p.leg.duration_min == exp["dur"]
+        assert p.leg.airlines == exp["air"]
+        assert p.leg.stops == 1
+        assert (p.leg.layovers[0].airport, p.leg.layovers[0].duration_min) == exp["lay"]
+        assert p.leg.arr_time == exp["arr_time"]
