@@ -358,9 +358,13 @@ class GoogleFlightsSource:
                 if "/booking" in page.url:
                     await asyncio.sleep(2.0)
                     try:
-                        vendors = booking_vendors(await page.inner_text("body"))
+                        body = await page.inner_text("body")
+                        vendors = booking_vendors(body)
                     except Exception:  # noqa: BLE001
-                        vendors = []
+                        body, vendors = "", []
+                    if self.diagnose:
+                        print(f"--- DIAG booking url={page.url[:200]}")
+                        print("    BOOKING BODY", re.sub(r"\s*\n\s*", " | ", body)[:3000])
                     return page.url, vendors
         if self.diagnose:
             print(f"--- DIAG booking: no /booking url, now {page.url}")
