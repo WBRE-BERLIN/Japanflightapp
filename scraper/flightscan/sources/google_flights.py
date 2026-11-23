@@ -28,7 +28,12 @@ from .tfs import google_search_url
 
 log = logging.getLogger(__name__)
 
-NO_RESULTS = re.compile(r"no (?:results|flights) (?:returned|found|match)|we couldn.t find any flights|no options", re.I)
+NO_RESULTS = re.compile(r"no (?:results|flights) (?:returned|found|match)|we couldn.t find any flights", re.I)
+GOOGLE_ERROR = re.compile(r"something went wrong", re.I)
+
+
+class TransientError(Exception):
+    """Google showed 'Oops, something went wrong'."""
 ROW_SELECTOR = '[aria-label*="Leaves "]'
 
 
@@ -122,7 +127,15 @@ class GoogleFlightsSource:
             task = queue.get_nowait()
             t0 = time.monotonic()
             try:
-                out = await self._search(page, task)
+                for attempt in range(3):
+                    try:
+                        out = await self._search(page, task)
+                        break
+                    except TransientError:
+                        if attempt == 2:
+                            raise
+                        log.info("%s: Google error page, retrying", task.key)
+                        await asyncio.sleep(5 + attempt * 10)
             except Blocked as e:
                 self._blocked = True
                 out = SearchOutcome(task, "blocked", message=str(e))
@@ -154,6 +167,8 @@ class GoogleFlightsSource:
             await self._save_debug(page, task, "noresults")
             return SearchOutcome(task, "no_results", counts=counts)
 
+        if self.diagnose:
+            await self._dump_rows(page, "outbound")
         level = price_level(await page.inner_text("body"))
         cands = choose(outs, cfg.constraints, cfg.filters, cfg.scrape.outbound_candidates)
         counts["out_ok"] = len(cands)
@@ -170,6 +185,8 @@ class GoogleFlightsSource:
                 continue
             rets = await self._wait_options(page, task.ret, set(dest_airports), expand=True, timeout=20)
             counts[f"ret{i}"] = len(rets or [])
+            if self.diagnose and i == 0:
+                await self._dump_rows(page, "return")
             chosen = choose(rets or [], cfg.constraints, cfg.filters, 2)
             if not chosen:
                 if not rets:
@@ -252,7 +269,9 @@ class GoogleFlightsSource:
             n = len(parsed)
             if n == 0:
                 body = await page.inner_text("body")
-                if NO_RESULTS.search(body) and time.monotonic() > end - timeout + 6:
+                if GOOGLE_ERROR.search(body):
+                    raise TransientError("Google: something went wrong")
+                if NO_RESULTS.search(body) and "Loading results" not in body and time.monotonic() > end - timeout + 6:
                     return []
                 self._check_blocked(page.url, await page.title())
             stable = stable + 1 if n == last and n > 0 else 0
@@ -281,12 +300,16 @@ class GoogleFlightsSource:
             ROW_SELECTOR, "(els, a) => els.findIndex(e => e.getAttribute('aria-label') === a)", aria
         )
         if idx is None or idx < 0:
+            if self.diagnose:
+                print(f"--- DIAG click: aria not found ({aria[:120]!r})")
             return False
         try:
             await page.locator(ROW_SELECTOR).nth(idx).click(timeout=10_000)
             return True
         except Exception as e:  # noqa: BLE001
             log.debug("click failed: %s", e)
+            if self.diagnose:
+                print(f"--- DIAG click failed: {e}"[:600])
             return False
 
     async def _open_booking(self, page, aria: str) -> tuple[str | None, list[str]]:
@@ -302,6 +325,9 @@ class GoogleFlightsSource:
                 except Exception:  # noqa: BLE001
                     vendors = []
                 return page.url, vendors
+        if self.diagnose:
+            print(f"--- DIAG booking: no /booking url, now {page.url}")
+            await self._dump(page, "booking")
         return None, []
 
     async def _dump(self, page, kind: str):
@@ -322,6 +348,29 @@ class GoogleFlightsSource:
             print("    BODY", txt.replace("\n", " | "))
         except Exception as e:  # noqa: BLE001
             print("--- DIAG failed", e)
+
+    async def _dump_rows(self, page, kind: str):
+        rows = await self._rows(page)
+        uniq = len({r["aria"] for r in rows})
+        print(f"--- DIAG rows {kind}: {len(rows)} rows, {uniq} unique aria labels, url={page.url[:160]}")
+        shown = 0
+        for r in rows:
+            if shown >= 8:
+                break
+            shown += 1
+            print("    ROW ARIA", r["aria"][:700])
+            print("    ROW TEXT", r["text"][:400].replace("\n", " | "))
+        odd = [r for r in rows if "Total duration" not in r["aria"]][:4]
+        for r in odd:
+            print("    ODD ARIA", r["aria"][:700])
+            print("    ODD TEXT", r["text"][:300].replace("\n", " | "))
+        html = await page.evaluate("""() => {
+            const el = document.querySelector('[aria-label*="Leaves "]');
+            if (!el) return '';
+            const li = el.closest('li') || el;
+            return li.outerHTML.slice(0, 2500);
+        }""")
+        print("    FIRST ROW HTML", re.sub(r"\s+", " ", html))
 
     async def _save_debug(self, page, task: SearchTask, kind: str):
         if self.diagnose:
