@@ -168,7 +168,7 @@ function renderFilters() {
       <label class="toggle"><input type="checkbox" id="f-bags" ${f.bagsOnly ? 'checked' : ''}>Bag included only</label>
     </div>
     <details class="more-filters">
-      <summary>More options</summary>
+      <summary>Exclude airlines &amp; more<span class="n" id="more-n" hidden></span></summary>
       <div class="frow" style="margin-bottom:8px">
         <span class="seg" role="group" aria-label="Price basis" id="f-basis">
           <button data-v="bags" aria-pressed="${f.basis === 'bags'}">Fare + bag estimate</button>
@@ -185,6 +185,17 @@ function renderFilters() {
       </div>
     </details>`;
   bindFilterEvents();
+  updateMoreCount();
+}
+
+function updateMoreCount() {
+  const f = state.f;
+  const n = f.exclAir.length + (f.basis !== 'bags') + (f.perPerson ? 1 : 0) + (f.allWild ? 1 : 0);
+  const el = $('#more-n');
+  if (!el) return;
+  el.hidden = !n;
+  el.textContent = n;
+  el.title = `${n} active`;
 }
 
 let filterEventsBound = false;
@@ -229,6 +240,7 @@ function setFilter(patch) {
       b.setAttribute('aria-pressed', String(state.f[key] === val));
     });
   }
+  updateMoreCount();
   update();
 }
 
