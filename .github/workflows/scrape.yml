@@ -1,0 +1,110 @@
+name: Scrape flights
+
+on:
+  schedule:
+    - cron: "17 1 * * *"    # ~02:17/03:17 Berlin – full sweep of all dates
+    - cron: "41 10 * * *"   # ~11:41/12:41 Berlin – re-check the cheapest dates
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "auto = full at night, refresh otherwise"
+        type: choice
+        options: [auto, full, refresh]
+        default: auto
+      limit:
+        description: "Max. Google Flights searches (empty = no limit)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      FTP_HOST: ${{ secrets.FTP_HOST }}
+      FTP_USER: ${{ secrets.FTP_USER }}
+      LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      FTP_DIR: ${{ secrets.FTP_DIR }}
+      SITE_URL: ${{ secrets.SITE_URL }}
+      CRON_KEY: ${{ secrets.CRON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the data branch (price history)
+        env:
+          REPO_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+        run: |
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            git clone --quiet --depth 1 --branch data "$REPO_URL" store
+          else
+            mkdir store && cd store && git init -q -b data && git remote add origin "$REPO_URL"
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scraper/requirements.txt
+
+      - name: Cache Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('scraper/requirements.txt') }}
+
+      - name: Install scraper
+        run: |
+          pip install -r scraper/requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Scrape
+        working-directory: scraper
+        env:
+          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+          TRAVELPAYOUTS_MARKER: ${{ secrets.TRAVELPAYOUTS_MARKER }}
+        run: |
+          LIMIT=""
+          if [ -n "${{ inputs.limit }}" ]; then LIMIT="--limit ${{ inputs.limit }}"; fi
+          python -m flightscan run --data ../store --mode "${{ inputs.mode || 'auto' }}" $LIMIT --debug-dir ../debug
+
+      - name: Save history to the data branch
+        if: always() && hashFiles('store/latest.json') != ''
+        working-directory: store
+        run: |
+          git config user.name "flight-scraper[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "data: $(date -u +%Y-%m-%dT%H:%MZ)" || { echo "no changes"; exit 0; }
+          git push -q origin HEAD:data
+
+      - name: Upload data to the web server
+        if: always() && env.FTP_HOST != '' && hashFiles('store/latest.json') != ''
+        run: |
+          sudo apt-get install -y -qq lftp >/dev/null
+          lftp --env-password -u "$FTP_USER" "ftp://$FTP_HOST" -e "
+            set ftp:ssl-force true; set ssl:verify-certificate yes; set net:max-retries 3;
+            mkdir -pf '${FTP_DIR:-/}/data'; cd '${FTP_DIR:-/}/data';
+            put store/latest.json -o latest.json.tmp; mv latest.json.tmp latest.json;
+            put store/history.json -o history.json.tmp; mv history.json.tmp history.json;
+            bye"
+
+      - name: Send price alerts
+        if: env.SITE_URL != '' && env.CRON_KEY != ''
+        run: |
+          curl -fsS --max-time 90 -H "X-Cron-Key: $CRON_KEY" "${SITE_URL%/}/api/cron.php?event=scrape" \
+            || echo "::warning::cron.php could not be reached"
+
+      - name: Keep debug screenshots
+        if: always() && hashFiles('debug/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-debug-${{ github.run_id }}
+          path: debug/
+          retention-days: 7

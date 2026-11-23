@@ -1,0 +1,43 @@
+name: Scraper smoke test
+
+# Two live Google Flights searches; prints what the parser extracts.
+on:
+  push:
+    branches-ignore: [data]
+    paths: ["scraper/flightscan/sources/**", ".github/workflows/smoke.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scraper/requirements.txt
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('scraper/requirements.txt') }}
+      - run: |
+          pip install -r scraper/requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Live searches
+        working-directory: scraper
+        run: |
+          set -o pipefail
+          python -m flightscan smoke --debug-dir ../debug 2>&1 | tee ../debug-smoke.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-debug
+          path: |
+            debug/
+            debug-smoke.log
+          retention-days: 5

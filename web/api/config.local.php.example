@@ -1,0 +1,7 @@
+<?php
+// Copy to config.local.php (the GitHub deploy workflow writes this file from secrets).
+return [
+    'cron_key' => 'change-me-to-a-long-random-string',   // min. 16 characters
+    'app_token' => '',                                   // optional code needed to enable notifications
+    'vapid_subject' => 'mailto:you@example.com',
+];
