@@ -110,6 +110,20 @@ class Store:
             if dt.date.fromisoformat(pair.split("|")[1]) <= today:
                 del self.state["checks"][pair]
 
+    def keep_destinations(self, dests) -> int:
+        """Drop offers, checks and pair history of destinations no longer in the config."""
+        keep = set(dests)
+        gone = [p for p in {*self.state["offers"], *self.state["checks"]} if p.split("|")[0] not in keep]
+        for p in gone:
+            self.state["offers"].pop(p, None)
+            self.state["checks"].pop(p, None)
+        for p in [p for p in self.history["pairs"] if p.split("|")[0] not in keep]:
+            del self.history["pairs"][p]
+        for day in self.history["daily"].values():
+            for k in [k for k in day if k.split("|")[-1] not in keep | {"*"}]:
+                del day[k]
+        return len(gone)
+
     def add_run(self, run: dict):
         self.state["runs"] = (self.state["runs"] + [run])[-RUNS_KEPT:]
 

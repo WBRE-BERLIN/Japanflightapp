@@ -1,6 +1,6 @@
 # ✈ Japan Flight Watch
 
-A small PWA that watches **one-stop round trips Berlin (BER) → Tokyo / Osaka for 2 people**
+A small PWA that watches **one-stop round trips Berlin (BER) → Tokyo for 2 people**
 and shows the cheapest options, a price calendar, price history and booking links. You get
 **one push notification a day at a time you choose**, plus an instant alert when a price drops
 below your limit.
@@ -22,7 +22,7 @@ Configured in [`config.toml`](config.toml), edited directly on GitHub:
 
 | | |
 |---|---|
-| Route | BER → Tokyo (HND, NRT) and Osaka (KIX), round trip, 2 adults, economy |
+| Route | BER → Tokyo (HND, NRT), round trip, 2 adults, economy. More cities: `[destinations.*]` in `config.toml` |
 | **May 2027** | departures 7–20 May (Golden Week ends 5 May), 10/11/12 nights, back by 1 June |
 | **October 2027** | departures 10–21 Oct ("last three weeks"), 10/11/12 nights, back by 1 Nov |
 | **Wildcards** | rotating sample across 2027 (holiday peaks excluded); shown only when ≥ 15 % cheaper than the best window price |
@@ -147,19 +147,19 @@ The daily message looks like this:
 ```
 ✈ Japan for 2: from €1,353 (€677 pp) ↓€64
 May 2027 €1,353 · Air China · 11–21 May · Tokyo
-October 2027 €1,505 +bags · Finnair · 18–28 Oct · Osaka
+October 2027 €1,505 +bags · Finnair · 18–28 Oct · Tokyo
 ```
 
 ## Using the app
 
-* **Cards** – best price per window, Tokyo vs. Osaka, 7-day trend.
+* **Cards** – best price per window, 7-day trend.
 * **Price calendar** – departure day × nights, darker = cheaper. Tap a day to list its flights.
 * **Flight cards** – times, stop + layover, total duration, bag status, price trend for these
   exact dates ("↓ €56 since last check", "Lowest seen"), and links: **Book** (Google's booking
   page for exactly these flights: airline direct, booking.com and other agencies, each with the
   flights pre-filled), Google Flights search, Skyscanner, KAYAK. On iPhone the links open in the
   Chrome app (saved cards and logins); switch this off in Settings if you use Safari.
-* **Filters** – window, Tokyo/Osaka, max. layover, max. travel time, bag included only,
+* **Filters** – window, destination, max. layover, max. travel time, bag included only,
   exclude airlines, total vs. per person, fare vs. fare + bag estimate.
 * **Price history** – daily cheapest per window (also as a table).
 * **Scraper status** – recent runs with success and error counts.

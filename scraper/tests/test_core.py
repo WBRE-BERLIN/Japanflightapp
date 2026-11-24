@@ -43,7 +43,7 @@ def test_config_windows():
     assert all(r <= may.latest_return for _, r in pairs)
     oct_pairs = window_pairs(CFG.window("oct"))
     assert (dt.date(2027, 10, 21), dt.date(2027, 11, 2)) not in oct_pairs
-    assert len(window_tasks(CFG, TODAY)) == (42 + 35) * 2
+    assert len(window_tasks(CFG, TODAY)) == (42 + 35) * len(CFG.destinations)
 
 
 def test_classify():
@@ -221,3 +221,18 @@ def test_store_keeps_booking_link_for_same_flights(tmp_path: Path):
     assert n["booking_vendors"][0]["name"] == "JAL" and n["bag_google"]["max"] == 0.0
     assert all(l["kind"] != "google_booking" for l in kept[other.id]["links"])
     assert sum(l["kind"] == "google_booking" for l in n["links"]) == 1
+
+
+def test_store_drops_removed_destination(tmp_path: Path):
+    store = Store(tmp_path)
+    tyo = offer(1867)
+    osa = offer(1900)
+    osa.dest = "OSA"
+    store.record_search(tyo.pair, "google_flights", "ok", [tyo], "2026-11-24T11:00:00Z", "may")
+    store.record_search(osa.pair, "google_flights", "ok", [osa], "2026-11-24T11:00:00Z", "may")
+    store.history["pairs"] = {tyo.pair: [["2026-11-24", 1867, 1867]], osa.pair: [["2026-11-24", 1900, 1900]]}
+    store.history["daily"] = {"2026-11-24": {"may|TYO": {}, "may|OSA": {}, "may|*": {}, "wild|OSA": {}}}
+    assert store.keep_destinations({"TYO": None}) == 1
+    assert list(store.state["offers"]) == [tyo.pair] and list(store.state["checks"]) == [tyo.pair]
+    assert list(store.history["pairs"]) == [tyo.pair]
+    assert sorted(store.history["daily"]["2026-11-24"]) == ["may|*", "may|TYO"]
