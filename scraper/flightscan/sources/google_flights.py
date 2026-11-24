@@ -122,7 +122,7 @@ class GoogleFlightsSource:
     # ── worker ──────────────────────────────────────────────────────────────
     async def _worker(self, wid, context, queue, results, deadline):
         page = await context.new_page()
-        await asyncio.sleep(wid * 2.5)  # stagger start
+        await asyncio.sleep(wid * 6 + random.uniform(0, 2))  # stagger start
         while not queue.empty():
             if self._blocked or time.monotonic() > deadline:
                 break
@@ -137,7 +137,7 @@ class GoogleFlightsSource:
                         if attempt == 2:
                             raise
                         log.info("%s: Google error page, retrying", task.key)
-                        await asyncio.sleep(5 + attempt * 10)
+                        await asyncio.sleep(15 + attempt * 20 + random.uniform(0, 5))
             except Blocked as e:
                 self._blocked = True
                 out = SearchOutcome(task, "blocked", message=str(e))
@@ -261,6 +261,7 @@ class GoogleFlightsSource:
         """Wait until the result list has settled; return rows departing from dep_codes."""
         end = time.monotonic() + timeout
         last, stable, expanded = -1, 0, not expand
+        reloads = 0
         parsed: list[ParsedOption] = []
         while time.monotonic() < end:
             await asyncio.sleep(0.7)
@@ -273,7 +274,15 @@ class GoogleFlightsSource:
             n = len(parsed)
             if n == 0:
                 if await self._visible(page, GOOGLE_ERROR):
-                    raise TransientError("Google: something went wrong")
+                    # Google often shows this briefly under load; its own "Reload" button usually fixes it
+                    reloads += 1
+                    if reloads > 3:
+                        raise TransientError("Google: something went wrong")
+                    await asyncio.sleep(1.5 * reloads)
+                    await self._press_reload(page)
+                    last, stable = -1, 0
+                    end = max(end, time.monotonic() + 12)
+                    continue
                 if time.monotonic() > end - timeout + 6 and await self._visible(page, NO_RESULTS):
                     return []
                 self._check_blocked(page.url, await page.title())
@@ -287,6 +296,16 @@ class GoogleFlightsSource:
                         continue
                 return parsed
         return parsed or None
+
+    async def _press_reload(self, page):
+        btn = page.get_by_role("button", name=re.compile(r"^\s*(Reload|Try again)\s*$", re.I))
+        try:
+            if await btn.count():
+                await btn.first.click(timeout=5_000)
+                return
+        except Exception:  # noqa: BLE001
+            pass
+        await page.reload(wait_until="domcontentloaded")
 
     async def _visible(self, page, pattern: re.Pattern) -> bool:
         loc = page.get_by_text(pattern)
