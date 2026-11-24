@@ -236,3 +236,12 @@ def test_store_drops_removed_destination(tmp_path: Path):
     assert list(store.state["offers"]) == [tyo.pair] and list(store.state["checks"]) == [tyo.pair]
     assert list(store.history["pairs"]) == [tyo.pair]
     assert sorted(store.history["daily"]["2026-11-24"]) == ["may|*", "may|TYO"]
+
+
+def test_plan_single_window(tmp_path: Path):
+    from flightscan.runner import plan
+    store = Store(tmp_path)
+    tasks = plan(CFG, store, "refresh", TODAY, window="oct")
+    assert tasks and {t.window for t in tasks} == {"oct"}
+    assert len(tasks) == 35 * len(CFG.destinations)
+    assert len(plan(CFG, store, "refresh", TODAY, limit=5, window="oct")) == 5

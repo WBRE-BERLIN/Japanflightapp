@@ -36,9 +36,18 @@ def _last_check(store: Store, pair: str) -> str:
     return (store.state["checks"].get(pair, {}).get("google_flights") or {}).get("at") or ""
 
 
-def plan(cfg: Config, store: Store, mode: str, today: dt.date, limit: int | None = None) -> list[SearchTask]:
+def plan(cfg: Config, store: Store, mode: str, today: dt.date, limit: int | None = None,
+         window: str | None = None) -> list[SearchTask]:
     windows = window_tasks(cfg, today)
     prices = _last_price(store)
+    if window:
+        # one travel window only (manual runs): every date pair of it, cheapest known first,
+        # then the ones checked longest ago; no wildcards
+        only = [t for t in windows if t.window == window]
+        known = sorted((t for t in only if t.key in prices), key=lambda t: prices[t.key])
+        rest = sorted((t for t in only if t.key not in prices), key=lambda t: _last_check(store, t.key))
+        out = known + rest
+        return out[:limit] if limit else out
     if mode == "refresh":
         known = sorted((t for t in windows if t.key in prices), key=lambda t: prices[t.key])
         never = [t for t in windows if not _last_check(store, t.key)]
@@ -77,10 +86,12 @@ def plan(cfg: Config, store: Store, mode: str, today: dt.date, limit: int | None
 
 def run(cfg: Config, data_dir: Path, *, mode: str = "auto", limit: int | None = None,
         use_google: bool = True, use_tp: bool = True, debug_dir: Path | None = None,
-        tfs_max_stops: int | None = 1) -> dict:
+        tfs_max_stops: int | None = 1, window: str | None = None) -> dict:
     now = dt.datetime.now(dt.timezone.utc)
     today = now.date()
     mode = resolve_mode(cfg, mode, now)
+    if window and not any(w.id == window for w in cfg.windows):
+        raise ValueError(f"unknown window {window!r}; config.toml has {[w.id for w in cfg.windows]}")
     store = Store(data_dir)
     dropped = store.keep_destinations(cfg.destinations)
     if dropped:
@@ -88,6 +99,8 @@ def run(cfg: Config, data_dir: Path, *, mode: str = "auto", limit: int | None = 
     t0 = time.monotonic()
     started = utcnow_iso()
     run_info: dict = {"at": started, "mode": mode, "sources": {}}
+    if window:
+        run_info["window"] = window
 
     # 1) Travelpayouts (bulk, cheap)
     token = os.environ.get("TRAVELPAYOUTS_TOKEN", "").strip()
@@ -106,7 +119,7 @@ def run(cfg: Config, data_dir: Path, *, mode: str = "auto", limit: int | None = 
     if use_google and cfg.sources.get("google_flights", True):
         from .sources.google_flights import GoogleFlightsSource
 
-        tasks = plan(cfg, store, mode, today, limit)
+        tasks = plan(cfg, store, mode, today, limit, window)
         budget = cfg.scrape.max_runtime_minutes * 60 - (time.monotonic() - t0)
         log.info("google flights: %d searches planned (mode=%s, budget %.0fs)", len(tasks), mode, budget)
         booking = cfg.scrape.fetch_booking_link == "always" or (
