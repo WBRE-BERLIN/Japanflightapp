@@ -202,3 +202,22 @@ def test_circuit_breaker():
     assert src._cooled_down and src._pause_until > 0 and not src._throttled
     asyncio.run(feed(["error"] * 5))
     assert src._throttled
+
+
+def test_store_keeps_booking_link_for_same_flights(tmp_path: Path):
+    store = Store(tmp_path)
+    t = SearchTask("TYO", dt.date(2027, 5, 18), dt.date(2027, 5, 30), "may")
+    midday = offer(1867)
+    midday.links.insert(0, {"kind": "google_booking", "label": "Book (Google Flights)", "url": "https://www.google.com/travel/flights/booking?tfs=x"})
+    midday.booking_vendors = [{"name": "JAL", "price": 1867.0, "airline": True, "phone": False}]
+    midday.bag_google = {"text": "€0", "min": 0.0, "max": 0.0}
+    store.record_search(t.key, "google_flights", "ok", [midday], "2026-11-24T11:00:00Z", "may")
+    # the next full run finds the same flights (cheaper) but skips the booking page
+    night, other = offer(1850), offer(1900, airlines=("ANA",), out=leg(airlines=("ANA",)), inn=leg(airlines=("ANA",)))
+    store.record_search(t.key, "google_flights", "ok", [night, other], "2026-11-25T02:00:00Z", "may")
+    kept = {o["id"]: o for o in store.state["offers"][t.key]}
+    n = kept[night.id]
+    assert n["price_total"] == 1850 and n["links"][0]["kind"] == "google_booking"
+    assert n["booking_vendors"][0]["name"] == "JAL" and n["bag_google"]["max"] == 0.0
+    assert all(l["kind"] != "google_booking" for l in kept[other.id]["links"])
+    assert sum(l["kind"] == "google_booking" for l in n["links"]) == 1
