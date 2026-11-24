@@ -156,7 +156,9 @@ October 2027 €1,505 +bags · Finnair · 18–28 Oct · Osaka
 * **Price calendar** – departure day × nights, darker = cheaper. Tap a day to list its flights.
 * **Flight cards** – times, stop + layover, total duration, bag status, price trend for these
   exact dates ("↓ €56 since last check", "Lowest seen"), and links: **Book** (Google's booking
-  page for exactly these flights), Google Flights search, the airline's site, Skyscanner, KAYAK.
+  page for exactly these flights: airline direct, booking.com and other agencies, each with the
+  flights pre-filled), Google Flights search, Skyscanner, KAYAK. On iPhone the links open in the
+  Chrome app (saved cards and logins); switch this off in Settings if you use Safari.
 * **Filters** – window, Tokyo/Osaka, max. layover, max. travel time, bag included only,
   exclude airlines, total vs. per person, fare vs. fare + bag estimate.
 * **Price history** – daily cheapest per window (also as a table).
