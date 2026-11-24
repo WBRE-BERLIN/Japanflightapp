@@ -34,8 +34,10 @@ Configured in [`config.toml`](config.toml), edited directly on GitHub:
 > every option. That is why the app's default is 19 h; the filter goes down to 16 h.
 
 Every night (~03:17 Berlin) all ~160 date/destination combinations are searched. At midday
-the cheapest ~24 are checked again. One search, including opening the return flights and the
-booking page, takes 25–40 s. With 3 parallel tabs a full run takes about 30 minutes.
+the cheapest ~24 are checked again, this time also opening Google's booking page (bag fee,
+sellers). One search, including the return flights, takes 20–40 s. With 2 parallel tabs a
+full run takes about 35–45 minutes. If Google slows down, the run stops after 45 minutes and
+the next run continues with the dates that were checked longest ago.
 
 ### Where the prices come from
 
@@ -59,7 +61,7 @@ Google shows the **cheapest** fare. For Lufthansa group, Finnair, KLM/Air France
 usually a "Light" fare **without** a checked bag. ANA, JAL, Turkish, LOT, Gulf and Chinese
 airlines include one.
 
-* For the cheapest itinerary of every search the scraper opens Google's booking page and takes
+* In the midday run (the cheapest ~24 dates) the scraper opens Google's booking page and takes
   the **real price of the first checked bag** from it (e.g. "€0–90 per passenger", marked
   "Google"). The same page also lists who sells the ticket (airline ✈ or agency, with prices)
   and Google's usual price range for similar trips.
@@ -204,8 +206,10 @@ cd .. && php -S localhost:8000 -t web       # open http://localhost:8000
 * **Google changes its page** → searches end up as "error" or "no flights" in the status table.
   The `Scraper smoke test` workflow shows what the parser reads, and failed searches leave
   screenshots as workflow artifacts. The parsing is in `sources/gf_parse.py`.
-* **Rate limiting** → the scraper stops as soon as Google shows a captcha. It retries at the
-  next scheduled run. Keep `concurrency` at 2–3.
+* **Rate limiting** → the scraper stops as soon as Google shows a captcha. If Google keeps
+  answering with "something went wrong" pages (5 failed searches in a row), it pauses 4 minutes
+  once, and if that does not help it ends the run. The dates it did not reach come first in the
+  next run. Keep `concurrency` at 2.
 * **October 2027** fares appear only once airlines open their schedules, roughly 11 months
   ahead. Until then those calendar cells stay empty.
 * Prices are snapshots. Always confirm the fare, the baggage allowance and the conditions

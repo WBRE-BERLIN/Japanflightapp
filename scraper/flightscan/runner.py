@@ -106,7 +106,9 @@ def run(cfg: Config, data_dir: Path, *, mode: str = "auto", limit: int | None = 
         tasks = plan(cfg, store, mode, today, limit)
         budget = cfg.scrape.max_runtime_minutes * 60 - (time.monotonic() - t0)
         log.info("google flights: %d searches planned (mode=%s, budget %.0fs)", len(tasks), mode, budget)
-        src = GoogleFlightsSource(cfg, debug_dir=debug_dir, tfs_max_stops=tfs_max_stops)
+        booking = cfg.scrape.fetch_booking_link == "always" or (
+            cfg.scrape.fetch_booking_link == "refresh" and mode == "refresh")
+        src = GoogleFlightsSource(cfg, debug_dir=debug_dir, tfs_max_stops=tfs_max_stops, fetch_booking=booking)
         outcomes = asyncio.run(src.run(tasks, time.monotonic() + budget))
         statuses = Counter(o.status for o in outcomes)
         for o in outcomes:
@@ -119,6 +121,8 @@ def run(cfg: Config, data_dir: Path, *, mode: str = "auto", limit: int | None = 
             "avg_s": round(sum(o.seconds for o in outcomes if o.seconds) / max(1, len(outcomes)), 1),
         }
         run_info["blocked"] = statuses.get("blocked", 0) > 0
+        if src._throttled:
+            run_info["throttled"] = True   # stopped early: Google kept showing error pages
         errors = [f"{o.task.key}: {o.message}" for o in outcomes if o.status == "error"][:5]
         if errors:
             run_info["errors"] = errors

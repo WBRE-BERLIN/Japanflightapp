@@ -29,6 +29,12 @@ def offer(price=1800, out=None, inn=None, window="may", depart="2027-05-10", ret
                  list(airlines), found_at="2026-11-23T02:00:00Z")
 
 
+def test_booking_mode():
+    assert CFG.scrape.fetch_booking_link in ("always", "refresh", "never")
+    from flightscan.config import _booking_mode
+    assert _booking_mode(True) == "always" and _booking_mode(False) == "never" and _booking_mode("refresh") == "refresh"
+
+
 def test_config_windows():
     may = CFG.window("may")
     assert may.depart_from == dt.date(2027, 5, 7)
@@ -109,8 +115,10 @@ def _opt(price, dur=1000, lay=120, airline="Finnair"):
 def test_choose():
     opts = [_opt(1500, dur=21 * 60), _opt(1700), _opt(1650, lay=7 * 60), _opt(1800, airline="LOT")]
     picks = choose(opts, CFG.constraints, CFG.filters, 3)
-    assert [p.price_total for p in picks] == [1500, 1700, 1800]
-    assert choose(opts, CFG.constraints, CFG.filters, 1)[0].price_total == 1500
+    assert [p.price_total for p in picks] == [1700, 1500, 1800]   # default-filter option first
+    assert choose(opts, CFG.constraints, CFG.filters, 1)[0].price_total == 1700
+    only_long = [_opt(1500, dur=21 * 60)]
+    assert choose(only_long, CFG.constraints, CFG.filters, 1)[0].price_total == 1500
     assert choose([], CFG.constraints, CFG.filters, 2) == []
 
 
@@ -177,3 +185,20 @@ def test_google_bag_info_overrides_rules():
     o.bag_google = {"text": "Free", "min": 0, "max": 0}
     assert enrich(CFG, o, store, now.date(), now)["bag"]["status"] == "included"
     assert Offer.from_dict(o.to_dict()).bag_google == o.bag_google
+
+
+def test_circuit_breaker():
+    import asyncio
+    from flightscan.sources.google_flights import GoogleFlightsSource
+    src = GoogleFlightsSource(CFG)
+
+    async def feed(statuses):
+        for s in statuses:
+            await src._note_outcome(s)
+
+    asyncio.run(feed(["error"] * 4 + ["ok"] + ["error"] * 4))
+    assert not src._cooled_down and not src._throttled          # streak was broken by a success
+    asyncio.run(feed(["error"]))
+    assert src._cooled_down and src._pause_until > 0 and not src._throttled
+    asyncio.run(feed(["error"] * 5))
+    assert src._throttled

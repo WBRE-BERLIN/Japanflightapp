@@ -52,7 +52,7 @@ class ScrapeSettings:
     full_run_hours_utc: tuple[int, ...] = (0, 1, 2, 3, 4, 5)
     refresh_top_n: int = 24
     outbound_candidates: int = 2
-    fetch_booking_link: bool = True
+    fetch_booking_link: str = "refresh"   # always | refresh | never
     max_runtime_minutes: int = 40
     max_days_ahead: int = 355
     stale_after_hours: int = 60
@@ -188,7 +188,7 @@ def load_config(path: str | Path | None = None) -> Config:
         full_run_hours_utc=tuple(int(h) for h in s.get("full_run_hours_utc", defaults.full_run_hours_utc)),
         refresh_top_n=int(s.get("refresh_top_n", defaults.refresh_top_n)),
         outbound_candidates=max(1, int(s.get("outbound_candidates", defaults.outbound_candidates))),
-        fetch_booking_link=bool(s.get("fetch_booking_link", defaults.fetch_booking_link)),
+        fetch_booking_link=_booking_mode(s.get("fetch_booking_link", defaults.fetch_booking_link)),
         max_runtime_minutes=int(s.get("max_runtime_minutes", defaults.max_runtime_minutes)),
         max_days_ahead=int(s.get("max_days_ahead", defaults.max_days_ahead)),
         stale_after_hours=int(s.get("stale_after_hours", defaults.stale_after_hours)),
@@ -210,6 +210,17 @@ def load_config(path: str | Path | None = None) -> Config:
         scrape=scrape,
         sources={k: bool(v) for k, v in raw.get("sources", {}).items()},
     )
+
+
+def _booking_mode(v) -> str:
+    if v is True:
+        return "always"
+    if v is False:
+        return "never"
+    v = str(v).lower()
+    if v not in ("always", "refresh", "never"):
+        raise ValueError("config: scrape.fetch_booking_link must be true, false or \"refresh\"")
+    return v
 
 
 def _as_date(v) -> dt.date:
