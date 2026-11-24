@@ -14,9 +14,11 @@ currency = "EUR"
 name     = "Tokyo"
 airports = ["HND", "NRT"]
 
-[destinations.OSA]
-name     = "Osaka"
-airports = ["KIX"]
+# Removing a destination also drops its stored fares on the next run.
+# To search Osaka again, add:
+# [destinations.OSA]
+# name     = "Osaka"
+# airports = ["KIX"]
 
 # ── Travel windows ──────────────────────────────────────────────────────────
 # Every combination of departure day × trip length (nights) is searched.
