@@ -73,31 +73,23 @@ The app ranks by **fare + bag cost** by default. You can switch to "Fare only" a
 
 ## Setup (one time, ~30 minutes)
 
-### 1. GitHub account and repository
+### 1. GitHub repository
 
-This repo lives in the separate account **`cladewig`**, so nothing here touches
-`wbre-berlin`. All secrets, Actions minutes and the `data` branch belong to this repository
-only.
+The repository is **`WBRE-BERLIN/Japanflightapp`** and is **public**. Clone it with your
+normal `wbre-berlin` login; you don't need a separate account, SSH host alias or
+`gh auth switch`:
 
-If you work with both accounts on one computer:
+```
+git clone git@github.com:WBRE-BERLIN/Japanflightapp.git
+```
 
-* **GitHub Desktop / browser:** sign in with `cladewig` only for this repository.
-* **git with SSH:** add a second key and a host alias in `~/.ssh/config`:
-  ```
-  Host github-cladewig
-    HostName github.com
-    User git
-    IdentityFile ~/.ssh/id_ed25519_cladewig
-  ```
-  then `git clone git@github-cladewig:cladewig/Japanflightapp.git` and inside the clone
-  `git config user.name "…"` / `git config user.email "…"`, so commits here use the
-  `cladewig` identity. Your other projects keep using `wbre-berlin` unchanged.
-* **gh CLI:** `gh auth login` with both accounts, then `gh auth switch` when needed.
+Because the repository is public, **GitHub Actions minutes on the standard runners are free and
+unlimited**. The scraper (≈35 min each night plus a midday re-check) does not count against
+any quota, so there is no need to cut `refresh_top_n` or the midday schedule to save minutes.
 
-The repository is private. Private repos include **2,000 free Actions minutes per month**.
-The scraper needs about 1,100–1,300 of them (≈35 min each night plus ≈7 min at midday). To
-use fewer, lower `refresh_top_n` or remove the midday schedule in `.github/workflows/scrape.yml`.
-If you make the repository public, Actions minutes are unlimited.
+Public means anyone can read the code and the `data` branch (price history). The
+**repository secrets** (FTP login, `CRON_KEY`, tokens) stay hidden: they are never shown in
+the code or in Actions logs, and workflows started from forks cannot read them.
 
 ### 2. all-inkl: subdomain + FTP user
 

@@ -1,5 +1,5 @@
 # Only needed if your all-inkl plan has no cron jobs and you don't use cron-job.org.
-# Uncomment the schedule. Note: each run costs ~1 Actions minute (private repos have 2000/month).
+# Uncomment the schedule. The repo is public, so Actions minutes are free (no monthly quota).
 name: Notification tick (fallback)
 
 on:
