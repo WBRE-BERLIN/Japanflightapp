@@ -204,7 +204,10 @@ cd .. && php -S localhost:8000 -t web       # open http://localhost:8000
   answering with "something went wrong" pages (5 failed searches in a row), it pauses 4 minutes
   once, and if that does not help it ends the run. The dates it did not reach come first in the
   next run. Keep `concurrency` at 2.
-* **October 2027** fares appear only once airlines open their schedules, roughly 11 months
-  ahead. Until then those calendar cells stay empty.
+* **October 2027**: Google Flights can only search trips whose return is at most 330 days
+  ahead (later dates fail with "something went wrong"). The scraper skips those dates
+  (`max_days_ahead` in `config.toml`), so October fills up day by day from late November:
+  every October date pair is searchable from 6 December 2026. Until then those calendar
+  cells stay empty.
 * Prices are snapshots. Always confirm the fare, the baggage allowance and the conditions
   before booking.

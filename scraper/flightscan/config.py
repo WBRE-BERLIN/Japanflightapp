@@ -54,7 +54,7 @@ class ScrapeSettings:
     outbound_candidates: int = 2
     fetch_booking_link: str = "refresh"   # always | refresh | never
     max_runtime_minutes: int = 40
-    max_days_ahead: int = 355
+    max_days_ahead: int = 330
     stale_after_hours: int = 60
     google_hl: str = "en"
     google_gl: str = "de"

@@ -84,7 +84,8 @@ refresh_top_n        = 24     # other runs only re-check the cheapest N date pai
 outbound_candidates  = 1      # outbound flights opened per search (each costs a page load)
 fetch_booking_link   = "refresh"  # booking page (bag fee, sellers): true | false | "refresh" = midday run only
 max_runtime_minutes  = 45
-max_days_ahead       = 355    # airlines publish schedules ~11 months ahead
+max_days_ahead       = 330    # Google Flights searches only up to 330 days ahead (return date);
+                                   # later dates fail with "something went wrong"
 stale_after_hours    = 60
 google_hl            = "en"
 google_gl            = "de"
