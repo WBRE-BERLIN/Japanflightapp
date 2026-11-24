@@ -68,8 +68,10 @@ class Store:
         entry = {"at": at, "status": status, "last_ok": prev.get("last_ok")}
         if status in ("ok", "no_results"):
             entry["last_ok"] = at
-            others = [o for o in self.state["offers"].get(pair, []) if o["source"] != source]
+            old = self.state["offers"].get(pair, [])
+            others = [o for o in old if o["source"] != source]
             mine = sorted(offers, key=lambda o: o.price_total)[:MAX_GOOGLE_PER_PAIR]
+            _carry_booking(mine, [o for o in old if o["source"] == source])
             self.state["offers"][pair] = others + [o.to_dict() for o in mine]
             if not self.state["offers"][pair]:
                 self.state["offers"].pop(pair, None)
@@ -151,6 +153,23 @@ class Store:
         write_json(self.dir / "history.json", self.history)
         if latest is not None:
             write_json(self.dir / "latest.json", latest)
+
+
+def _carry_booking(new: list[Offer], old: list[dict]):
+    """Keep Google's booking page data (Book link, sellers, bag fee) for the same flights.
+
+    Full runs skip the booking page to save time; without this, a full run would drop the
+    "Book" link and the real bag price that the midday run found for the same itinerary.
+    """
+    prev = {o.get("id"): o for o in old if any(l.get("kind") == "google_booking" for l in o.get("links", []))}
+    for o in new:
+        p = prev.get(o.id)
+        if not p or any(l.get("kind") == "google_booking" for l in o.links):
+            continue
+        o.links = [l for l in p["links"] if l.get("kind") == "google_booking"] + o.links
+        o.booking_vendors = o.booking_vendors or list(p.get("booking_vendors") or [])
+        o.bag_google = o.bag_google or p.get("bag_google")
+        o.typical_range = o.typical_range or p.get("typical_range")
 
 
 def _min(a, b):

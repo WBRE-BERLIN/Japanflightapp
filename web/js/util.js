@@ -70,6 +70,21 @@ export function safeUrl(u) {
   }
 }
 
+export const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+/** Open links in Chrome on iPhone/iPad (saved cards, logins) instead of the in-app Safari view. */
+export const openInChrome = () => isIOS && store.get('jfw.chrome', true);
+
+/** href + target attributes for an external link. */
+export function extLink(u) {
+  const url = safeUrl(u);
+  if (url !== '#' && openInChrome()) {
+    return `href="${esc(url.replace(/^http(s?):\/\//, 'googlechrome$1://'))}"`;
+  }
+  return `href="${esc(url)}" target="_blank" rel="noopener"`;
+}
+
 export const store = {
   get(key, fallback) {
     try {

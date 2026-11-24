@@ -1,4 +1,4 @@
-import { addDays, ago, day, dayDiff, dayShort, dur, esc, hm, money, safeUrl, span, stamp, store, toast } from './util.js';
+import { addDays, ago, day, dayDiff, dayShort, dur, esc, extLink, hm, isIOS, money, span, stamp, store, toast } from './util.js';
 import { lineChart, sparkline } from './charts.js';
 import * as push from './push.js';
 
@@ -476,7 +476,7 @@ function altRow(o) {
   const link = o.links[0];
   return `<div class="alt"><span><b>${fmt(price(o))}</b> · ${esc(o.airlines.join(', '))} · ${esc(destName(o.dest))} ${esc(o.outbound?.arr_airport || '')}
     <br><span class="hint">Out ${dur(o.outbound?.duration_min)} via ${esc(lay(o.outbound))} · Back ${dur(o.inbound?.duration_min)} via ${esc(lay(o.inbound))}</span></span>
-    ${link ? `<a href="${esc(safeUrl(link.url))}" target="_blank" rel="noopener">${esc(link.label)} ↗</a>` : ''}</div>`;
+    ${link ? `<a ${extLink(link.url)}>${esc(link.kind === 'google_booking' ? 'Book' : link.label)} ↗</a>` : ''}</div>`;
 }
 
 function offerLegs(o) {
@@ -513,12 +513,16 @@ function legRow(label, leg) {
   </div>`;
 }
 
-function linkButtons(o, primaryCount, max = 5) {
-  const order = ['google_booking', 'aviasales', 'google', 'airline', 'skyscanner', 'kayak'];
-  const links = [...o.links].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
+// Airline homepages are left out: they can't be pre-filled with the flights. "Book" opens
+// Google's booking page for the exact itinerary, which lists the airline and agencies
+// (booking.com, Gotogate …) with "Continue" buttons that carry the flights over.
+function linkButtons(o, primaryCount, max = 4) {
+  const order = ['google_booking', 'aviasales', 'google', 'skyscanner', 'kayak'];
+  const links = o.links.filter((l) => order.includes(l.kind))
+    .sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
   return links.slice(0, max).map((l, i) => {
-    const label = l.kind === 'google_booking' ? 'Book' : l.kind === 'airline' ? `${l.label} ↗` : l.label;
-    return `<a class="btn ${i < primaryCount ? 'primary' : ''}" href="${esc(safeUrl(l.url))}" target="_blank" rel="noopener">${esc(label)}</a>`;
+    const label = l.kind === 'google_booking' ? 'Book' : l.label;
+    return `<a class="btn ${i < primaryCount ? 'primary' : ''}" ${extLink(l.url)}>${esc(label)}</a>`;
   }).join('');
 }
 
@@ -601,6 +605,14 @@ function bindSettings() {
   };
   setTheme(theme);
   $('#s-theme').addEventListener('click', (e) => { const v = e.target.closest('button')?.dataset.v; if (v) setTheme(v); });
+  const chrome = $('#s-chrome');
+  $('#s-chrome-row').hidden = !isIOS;
+  $('#s-chrome-hint').hidden = !isIOS;
+  chrome.checked = store.get('jfw.chrome', true);
+  chrome.addEventListener('change', () => {
+    store.set('jfw.chrome', chrome.checked);
+    if (state.data) update();
+  });
   $('#s-reset').addEventListener('click', () => {
     if (!state.data) return;
     state.f = defaults();
