@@ -121,6 +121,8 @@ def run(cfg: Config, data_dir: Path, *, mode: str = "auto", limit: int | None = 
             "avg_s": round(sum(o.seconds for o in outcomes if o.seconds) / max(1, len(outcomes)), 1),
         }
         run_info["blocked"] = statuses.get("blocked", 0) > 0
+        if src._throttled:
+            run_info["throttled"] = True   # stopped early: Google kept showing error pages
         errors = [f"{o.task.key}: {o.message}" for o in outcomes if o.status == "error"][:5]
         if errors:
             run_info["errors"] = errors

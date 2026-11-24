@@ -206,8 +206,10 @@ cd .. && php -S localhost:8000 -t web       # open http://localhost:8000
 * **Google changes its page** → searches end up as "error" or "no flights" in the status table.
   The `Scraper smoke test` workflow shows what the parser reads, and failed searches leave
   screenshots as workflow artifacts. The parsing is in `sources/gf_parse.py`.
-* **Rate limiting** → the scraper stops as soon as Google shows a captcha. It retries at the
-  next scheduled run. Keep `concurrency` at 2–3.
+* **Rate limiting** → the scraper stops as soon as Google shows a captcha. If Google keeps
+  answering with "something went wrong" pages (5 failed searches in a row), it pauses 4 minutes
+  once, and if that does not help it ends the run. The dates it did not reach come first in the
+  next run. Keep `concurrency` at 2.
 * **October 2027** fares appear only once airlines open their schedules, roughly 11 months
   ahead. Until then those calendar cells stay empty.
 * Prices are snapshots. Always confirm the fare, the baggage allowance and the conditions

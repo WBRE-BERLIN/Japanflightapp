@@ -77,6 +77,9 @@ def choose(options: list[ParsedOption], broad: Limits, strict: Limits, k: int) -
 
 class GoogleFlightsSource:
     name = "google_flights"
+    FAIL_STREAK_LIMIT = 5      # failed searches in a row before pausing / stopping
+    COOL_DOWN_S = 240
+    pause = (3.0, 7.0)         # seconds between two searches of one tab
 
     def __init__(self, cfg: Config, *, debug_dir: Path | None = None, headless: bool = True,
                  tfs_max_stops: int | None = 1, diagnose: bool = False, fetch_booking: bool = True):
@@ -88,6 +91,10 @@ class GoogleFlightsSource:
         self.tfs_max_stops = tfs_max_stops
         self._debug_saved = 0
         self._blocked = False
+        self._fail_streak = 0        # searches in a row that ended as "error" (all workers)
+        self._cooled_down = False
+        self._throttled = False
+        self._pause_until = 0.0
 
     # ── public ──────────────────────────────────────────────────────────────
     async def run(self, tasks: list[SearchTask], deadline: float) -> list[SearchOutcome]:
@@ -111,8 +118,10 @@ class GoogleFlightsSource:
 
         while not queue.empty():
             t = queue.get_nowait()
+            reason = ("blocked" if self._blocked else
+                      "Google kept showing error pages" if self._throttled else "time budget")
             results.append(SearchOutcome(t, "blocked" if self._blocked else "skipped",
-                                         message="not searched (time budget or block)"))
+                                         message=f"not searched ({reason})"))
         return results
 
     # ── worker ──────────────────────────────────────────────────────────────
@@ -125,12 +134,44 @@ class GoogleFlightsSource:
         context.set_default_timeout(30_000)
         return context, await context.new_page()
 
+    async def _fresh(self, context):
+        """Close a (possibly broken) session and open a new one."""
+        try:
+            await context.close()
+        except Exception:  # noqa: BLE001
+            pass
+        return await self._new_page()
+
+    async def _note_outcome(self, status: str):
+        """Circuit breaker: when Google keeps failing, pause once, then give up for this run.
+
+        Searches that are not done stay "oldest checked" and come first in the next run.
+        """
+        if status != "error":
+            self._fail_streak = 0
+            return
+        self._fail_streak += 1
+        if self._fail_streak < self.FAIL_STREAK_LIMIT or self._throttled:
+            return
+        if not self._cooled_down:
+            self._cooled_down = True
+            self._fail_streak = 0
+            log.warning("Google keeps showing error pages – pausing %d s", self.COOL_DOWN_S)
+            self._pause_until = time.monotonic() + self.COOL_DOWN_S
+        else:
+            self._throttled = True
+            log.warning("Google still failing after the pause – stopping; the rest waits for the next run")
+
     async def _worker(self, wid, queue, results, deadline):
         context, page = await self._new_page()
         await asyncio.sleep(wid * 6 + random.uniform(0, 2))  # stagger start
         while not queue.empty():
-            if self._blocked or time.monotonic() > deadline:
+            if self._blocked or self._throttled or time.monotonic() > deadline:
                 break
+            wait = self._pause_until - time.monotonic()
+            if wait > 0:
+                await asyncio.sleep(wait)
+                continue
             task = queue.get_nowait()
             t0 = time.monotonic()
             try:
@@ -142,9 +183,8 @@ class GoogleFlightsSource:
                         if attempt == 2:
                             raise
                         log.info("%s: Google error page, retrying in a fresh session", task.key)
-                        await context.close()
+                        context, page = await self._fresh(context)
                         await asyncio.sleep(15 + attempt * 20 + random.uniform(0, 5))
-                        context, page = await self._new_page()
             except Blocked as e:
                 self._blocked = True
                 out = SearchOutcome(task, "blocked", message=str(e))
@@ -153,11 +193,14 @@ class GoogleFlightsSource:
                 log.warning("search %s failed: %s", task.key, e)
                 out = SearchOutcome(task, "error", message=f"{type(e).__name__}: {e}"[:300])
                 await self._save_debug(page, task, "error")
+                # the tab may be unusable now (closed, crashed, stuck navigation): start over
+                context, page = await self._fresh(context)
             out.seconds = round(time.monotonic() - t0, 1)
             results.append(out)
             log.info("%-26s %-10s %5.1fs offers=%d %s", task.key, out.status, out.seconds,
                      len(out.offers), out.counts)
-            await asyncio.sleep(random.uniform(1.5, 4.0))
+            await self._note_outcome(out.status)
+            await asyncio.sleep(random.uniform(*self.pause))
         await context.close()
 
     # ── one search ──────────────────────────────────────────────────────────

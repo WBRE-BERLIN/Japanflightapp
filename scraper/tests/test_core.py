@@ -185,3 +185,20 @@ def test_google_bag_info_overrides_rules():
     o.bag_google = {"text": "Free", "min": 0, "max": 0}
     assert enrich(CFG, o, store, now.date(), now)["bag"]["status"] == "included"
     assert Offer.from_dict(o.to_dict()).bag_google == o.bag_google
+
+
+def test_circuit_breaker():
+    import asyncio
+    from flightscan.sources.google_flights import GoogleFlightsSource
+    src = GoogleFlightsSource(CFG)
+
+    async def feed(statuses):
+        for s in statuses:
+            await src._note_outcome(s)
+
+    asyncio.run(feed(["error"] * 4 + ["ok"] + ["error"] * 4))
+    assert not src._cooled_down and not src._throttled          # streak was broken by a success
+    asyncio.run(feed(["error"]))
+    assert src._cooled_down and src._pause_until > 0 and not src._throttled
+    asyncio.run(feed(["error"] * 5))
+    assert src._throttled
