@@ -106,7 +106,9 @@ def run(cfg: Config, data_dir: Path, *, mode: str = "auto", limit: int | None = 
         tasks = plan(cfg, store, mode, today, limit)
         budget = cfg.scrape.max_runtime_minutes * 60 - (time.monotonic() - t0)
         log.info("google flights: %d searches planned (mode=%s, budget %.0fs)", len(tasks), mode, budget)
-        src = GoogleFlightsSource(cfg, debug_dir=debug_dir, tfs_max_stops=tfs_max_stops)
+        booking = cfg.scrape.fetch_booking_link == "always" or (
+            cfg.scrape.fetch_booking_link == "refresh" and mode == "refresh")
+        src = GoogleFlightsSource(cfg, debug_dir=debug_dir, tfs_max_stops=tfs_max_stops, fetch_booking=booking)
         outcomes = asyncio.run(src.run(tasks, time.monotonic() + budget))
         statuses = Counter(o.status for o in outcomes)
         for o in outcomes:

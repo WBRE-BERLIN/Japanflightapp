@@ -29,6 +29,12 @@ def offer(price=1800, out=None, inn=None, window="may", depart="2027-05-10", ret
                  list(airlines), found_at="2026-11-23T02:00:00Z")
 
 
+def test_booking_mode():
+    assert CFG.scrape.fetch_booking_link in ("always", "refresh", "never")
+    from flightscan.config import _booking_mode
+    assert _booking_mode(True) == "always" and _booking_mode(False) == "never" and _booking_mode("refresh") == "refresh"
+
+
 def test_config_windows():
     may = CFG.window("may")
     assert may.depart_from == dt.date(2027, 5, 7)
@@ -109,8 +115,10 @@ def _opt(price, dur=1000, lay=120, airline="Finnair"):
 def test_choose():
     opts = [_opt(1500, dur=21 * 60), _opt(1700), _opt(1650, lay=7 * 60), _opt(1800, airline="LOT")]
     picks = choose(opts, CFG.constraints, CFG.filters, 3)
-    assert [p.price_total for p in picks] == [1500, 1700, 1800]
-    assert choose(opts, CFG.constraints, CFG.filters, 1)[0].price_total == 1500
+    assert [p.price_total for p in picks] == [1700, 1500, 1800]   # default-filter option first
+    assert choose(opts, CFG.constraints, CFG.filters, 1)[0].price_total == 1700
+    only_long = [_opt(1500, dur=21 * 60)]
+    assert choose(only_long, CFG.constraints, CFG.filters, 1)[0].price_total == 1500
     assert choose([], CFG.constraints, CFG.filters, 2) == []
 
 
