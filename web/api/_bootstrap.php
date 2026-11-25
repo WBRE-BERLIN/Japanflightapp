@@ -20,6 +20,8 @@ $CONFIG = [
     'data_dir' => dirname(__DIR__) . '/data',
     'storage_dir' => __DIR__ . '/storage',
     'default_timezone' => 'Europe/Berlin',
+    // false: cron.php sends nothing (no daily digest, no price alerts).
+    'notifications' => true,
 ];
 $localFile = getenv('JFW_CONFIG') ?: __DIR__ . '/config.local.php';
 if (is_file($localFile)) {

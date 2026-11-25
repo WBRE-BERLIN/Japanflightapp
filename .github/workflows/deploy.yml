@@ -42,6 +42,9 @@ jobs:
             "cron_key" => (string)getenv("CRON_KEY"),
             "app_token" => (string)getenv("APP_TOKEN"),
             "vapid_subject" => (string)getenv("VAPID_SUBJECT"),
+            // Turned off after booking: no daily digest, no price alerts.
+            // Set to true (and deploy) to send notifications again.
+            "notifications" => false,
           ], true) . ";\n");'
           sed -i "s/__BUILD__/${GITHUB_SHA::8}/" web/sw.js
           rm -f web/data/*.json

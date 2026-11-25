@@ -1,5 +1,10 @@
 # ✈ Japan Flight Watch
 
+> **Paused (flight booked, 25 Nov 2026).** The "Scrape flights" workflow is disabled, and
+> notifications are turned off (`"notifications" => false` in `.github/workflows/deploy.yml`).
+> To resume: Actions → Scrape flights → *Enable workflow*, and set `notifications` back to
+> `true`, then let the deploy run.
+
 A small PWA that watches **one-stop round trips Berlin (BER) → Tokyo for 2 people**
 and shows the cheapest options, a price calendar, price history and booking links. You get
 **one push notification a day at a time you choose**, plus an instant alert when a price drops
