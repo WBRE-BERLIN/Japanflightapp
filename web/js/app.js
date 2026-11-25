@@ -649,7 +649,7 @@ function readPrefs() {
     ...push.loadPrefs(),
     daily: true,
     notify_time: $('#p-time').value || '08:00',
-    windows: windows.length ? windows : ['may', 'oct', 'wild'],
+    windows: windows.length ? windows : ['may', 'wild'],
     alert_below: Number.isFinite(alert) && alert > 0 ? alert : null,
     token: $('#p-token').value.trim(),
   };
@@ -669,7 +669,7 @@ function setPushStatus(text, cls = '') {
 
 async function refreshPushUI() {
   const prefs = push.loadPrefs();
-  const wins = state.data ? [...cfg().windows.map((w) => [w.id, winLabel(w.id)]), ['wild', 'Wildcards']] : [['may', 'May'], ['oct', 'October'], ['wild', 'Wildcards']];
+  const wins = state.data ? [...cfg().windows.map((w) => [w.id, winLabel(w.id)]), ['wild', 'Wildcards']] : [['may', 'May'], ['wild', 'Wildcards']];
   $('#p-windows').innerHTML = wins.map(([id, l]) => `<label class="toggle"><input type="checkbox" value="${esc(id)}" ${prefs.windows.includes(id) ? 'checked' : ''}>${esc(l)}</label>`).join('');
   $('#p-time').value = prefs.notify_time;
   $('#p-alert').value = prefs.alert_below ?? '';

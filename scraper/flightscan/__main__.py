@@ -29,7 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--data", required=True, type=Path)
     r.add_argument("--mode", default="auto", choices=["auto", "full", "refresh"])
     r.add_argument("--limit", type=int, default=None, help="max Google searches (testing)")
-    r.add_argument("--window", default=None, help="search only this travel window (e.g. oct)")
+    r.add_argument("--window", default=None, help="search only this travel window (id from config.toml, e.g. may)")
     r.add_argument("--debug-dir", type=Path, default=None)
     r.add_argument("--no-google", action="store_true")
     r.add_argument("--no-travelpayouts", action="store_true")

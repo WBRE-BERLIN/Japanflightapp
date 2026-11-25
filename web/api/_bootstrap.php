@@ -150,7 +150,7 @@ function clean_prefs(array $p): array
     if (!in_array($tz, timezone_identifiers_list(), true)) {
         $tz = (string)cfg('default_timezone');
     }
-    $windows = array_values(array_filter(array_map('strval', (array)($p['windows'] ?? ['may', 'oct', 'wild'])),
+    $windows = array_values(array_filter(array_map('strval', (array)($p['windows'] ?? ['may', 'wild'])),
         static function ($w) { return preg_match('/^[a-z0-9_-]{1,20}$/', $w) === 1; }));
     $alert = isset($p['alert_below']) && is_numeric($p['alert_below']) && (float)$p['alert_below'] > 0
         ? (float)$p['alert_below'] : null;
@@ -158,7 +158,7 @@ function clean_prefs(array $p): array
         'daily' => !isset($p['daily']) || (bool)$p['daily'],
         'notify_time' => $time,
         'tz' => $tz,
-        'windows' => $windows ?: ['may', 'oct', 'wild'],
+        'windows' => $windows ?: ['may', 'wild'],
         'alert_below' => $alert,
         'label' => substr(preg_replace('/[^\pL\pN ._-]/u', '', (string)($p['label'] ?? '')), 0, 40),
     ];

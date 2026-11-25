@@ -18,7 +18,7 @@ on:
       window:
         description: "Only this travel window (all = normal plan)"
         type: choice
-        options: [all, may, oct]
+        options: [all, may]
         default: all
 
 permissions:
