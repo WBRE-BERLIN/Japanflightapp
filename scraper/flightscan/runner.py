@@ -96,6 +96,9 @@ def run(cfg: Config, data_dir: Path, *, mode: str = "auto", limit: int | None = 
     dropped = store.keep_destinations(cfg.destinations)
     if dropped:
         log.info("dropped %d date pairs of destinations no longer in config.toml", dropped)
+    dropped = store.keep_windows(w.id for w in cfg.windows)
+    if dropped:
+        log.info("dropped %d date pairs of travel windows no longer in config.toml", dropped)
     t0 = time.monotonic()
     started = utcnow_iso()
     run_info: dict = {"at": started, "mode": mode, "sources": {}}

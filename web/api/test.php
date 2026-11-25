@@ -20,7 +20,7 @@ if ($sub === null) {
 }
 $latest = load_data('latest.json');
 $msg = $latest
-    ? Digest::daily($latest, load_data('history.json'), $sub['windows'] ?? ['may', 'oct', 'wild'], base_url())
+    ? Digest::daily($latest, load_data('history.json'), $sub['windows'] ?? ['may', 'wild'], base_url())
     : ['title' => 'Japan Flight Watch', 'body' => 'Notifications work! No flight data uploaded yet.', 'url' => base_url(), 'tag' => 'test'];
 $msg['title'] = '[Test] ' . $msg['title'];
 $res = pusher()->send($sub, json_encode($msg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 600, 'high');

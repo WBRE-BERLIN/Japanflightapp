@@ -44,7 +44,7 @@ export function loadPrefs() {
   return {
     daily: true,
     notify_time: '08:00',
-    windows: ['may', 'oct', 'wild'],
+    windows: ['may', 'wild'],
     alert_below: null,
     token: '',
     ...store.get('jfw.push', {}),

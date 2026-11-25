@@ -24,7 +24,6 @@ Configured in [`config.toml`](config.toml), edited directly on GitHub:
 |---|---|
 | Route | BER → Tokyo (HND, NRT), round trip, 2 adults, economy. More cities: `[destinations.*]` in `config.toml` |
 | **May 2027** | departures 7–20 May (Golden Week ends 5 May), 10/11/12 nights, back by 1 June |
-| **October 2027** | departures 10–21 Oct ("last three weeks"), 10/11/12 nights, back by 1 Nov |
 | **Wildcards** | rotating sample across 2027 (holiday peaks excluded); shown only when ≥ 15 % cheaper than the best window price |
 | Limits while scraping | max. 1 stop, layover ≤ 6 h, ≤ 24 h per direction, no "self-transfer" tickets |
 | Default app filters | layover ≤ 4 h, travel time ≤ 19 h (both adjustable in the app) |
@@ -147,7 +146,7 @@ The daily message looks like this:
 ```
 ✈ Japan for 2: from €1,353 (€677 pp) ↓€64
 May 2027 €1,353 · Air China · 11–21 May · Tokyo
-October 2027 €1,505 +bags · Finnair · 18–28 Oct · Tokyo
+Wildcard €1,232 · LOT · 14–25 Feb · Tokyo
 ```
 
 ## Using the app
@@ -204,10 +203,8 @@ cd .. && php -S localhost:8000 -t web       # open http://localhost:8000
   answering with "something went wrong" pages (5 failed searches in a row), it pauses 4 minutes
   once, and if that does not help it ends the run. The dates it did not reach come first in the
   next run. Keep `concurrency` at 2.
-* **October 2027**: Google Flights can only search trips whose return is at most 330 days
+* **Dates far ahead**: Google Flights can only search trips whose return is at most 330 days
   ahead (later dates fail with "something went wrong"). The scraper skips those dates
-  (`max_days_ahead` in `config.toml`), so October fills up day by day from late November:
-  every October date pair is searchable from 6 December 2026. Until then those calendar
-  cells stay empty.
+  (`max_days_ahead` in `config.toml`) and picks them up as soon as they come within reach.
 * Prices are snapshots. Always confirm the fare, the baggage allowance and the conditions
   before booking.

@@ -41,10 +41,8 @@ def test_config_windows():
     pairs = window_pairs(may)
     assert len(pairs) == 14 * 3
     assert all(r <= may.latest_return for _, r in pairs)
-    oct_pairs = window_pairs(CFG.window("oct"))
-    assert (dt.date(2027, 10, 21), dt.date(2027, 11, 2)) not in oct_pairs
     limit = TODAY + dt.timedelta(days=CFG.scrape.max_days_ahead)
-    reachable = sum(r <= limit for _, r in pairs + oct_pairs)
+    reachable = sum(r <= limit for w in CFG.windows for _, r in window_pairs(w))
     assert len(window_tasks(CFG, TODAY)) == reachable * len(CFG.destinations)
     assert all(t.ret <= limit for t in window_tasks(CFG, TODAY))
 
@@ -244,8 +242,25 @@ def test_store_drops_removed_destination(tmp_path: Path):
 def test_plan_single_window(tmp_path: Path):
     from flightscan.runner import plan
     store = Store(tmp_path)
-    dec = dt.date(2026, 12, 10)          # every October date is within reach by then
-    tasks = plan(CFG, store, "refresh", dec, window="oct")
-    assert {t.window for t in tasks} == {"oct"} and len(tasks) == 35 * len(CFG.destinations)
-    assert len(plan(CFG, store, "refresh", dec, limit=2, window="oct")) == 2
-    assert plan(CFG, store, "refresh", TODAY, window="oct") == []   # Oct 2027 not searchable yet
+    tasks = plan(CFG, store, "refresh", TODAY, window="may")
+    assert {t.window for t in tasks} == {"may"} and len(tasks) == 42 * len(CFG.destinations)
+    assert len(plan(CFG, store, "refresh", TODAY, limit=2, window="may")) == 2
+    # a date pair 340 days ahead is past Google's search limit and never planned
+    far = dt.date(2027, 6, 1) - dt.timedelta(days=340)
+    assert plan(CFG, store, "refresh", far, window="may")[-1].ret <= far + dt.timedelta(days=CFG.scrape.max_days_ahead)
+
+
+
+def test_store_drops_removed_window(tmp_path: Path):
+    store = Store(tmp_path)
+    may = offer(1867)
+    oct_ = offer(2247, window="oct", depart="2027-10-10", ret="2027-10-20")
+    wild = offer(1500, window="wild", depart="2027-03-02", ret="2027-03-13")
+    for o in (may, oct_, wild):
+        store.record_search(o.pair, "google_flights", "ok", [o], "2026-11-25T08:00:00Z", o.window)
+    store.history["pairs"] = {o.pair: [["2026-11-25", o.price_total, o.price_total]] for o in (may, oct_, wild)}
+    store.history["daily"] = {"2026-11-25": {"may|TYO": {}, "oct|TYO": {}, "oct|*": {}, "wild|*": {}}}
+    assert store.keep_windows(["may"]) == 1
+    assert sorted(store.state["offers"]) == sorted([may.pair, wild.pair])
+    assert oct_.pair not in store.state["checks"] and oct_.pair not in store.history["pairs"]
+    assert sorted(store.history["daily"]["2026-11-25"]) == ["may|TYO", "wild|*"]

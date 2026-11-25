@@ -26,7 +26,7 @@ $log = [];
 
 storage()->withSubscriptions(static function (array &$subs) use ($latest, $history, $appUrl, $push, $force, &$log) {
     foreach ($subs as $i => &$s) {
-        $windows = $s['windows'] ?? ['may', 'oct', 'wild'];
+        $windows = $s['windows'] ?? ['may', 'wild'];
         try {
             $tz = new DateTimeZone($s['tz'] ?? (string)cfg('default_timezone'));
         } catch (Exception $e) {

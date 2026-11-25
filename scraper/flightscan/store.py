@@ -124,6 +124,24 @@ class Store:
                 del day[k]
         return len(gone)
 
+    def keep_windows(self, windows) -> int:
+        """Drop offers, checks and history of travel windows no longer in the config."""
+        keep = set(windows) | {"wild"}
+        gone = {p for p, chk in self.state["checks"].items() if chk.get("window") not in keep}
+        gone |= {p for p, lst in self.state["offers"].items() if any(o.get("window") not in keep for o in lst)}
+        for p in gone:
+            self.state["checks"].pop(p, None)
+            self.history["pairs"].pop(p, None)
+            lst = [o for o in self.state["offers"].get(p, []) if o.get("window") in keep]
+            if lst:
+                self.state["offers"][p] = lst
+            else:
+                self.state["offers"].pop(p, None)
+        for day in self.history["daily"].values():
+            for k in [k for k in day if k.split("|")[0] not in keep]:
+                del day[k]
+        return len(gone)
+
     def add_run(self, run: dict):
         self.state["runs"] = (self.state["runs"] + [run])[-RUNS_KEPT:]
 

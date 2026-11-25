@@ -31,16 +31,10 @@ depart_to     = 2027-05-20
 latest_return = 2027-06-01
 nights        = [10, 11, 12]
 
-# "Last three weeks of October": 10 Oct – 1 Nov.
-[[windows]]
-id            = "oct"
-label         = "October 2027 · last three weeks"
-depart_from   = 2027-10-10
-depart_to     = 2027-10-21
-latest_return = 2027-11-01
-nights        = [10, 11, 12]
+# More windows: add another [[windows]] block (id, label, depart_from, depart_to,
+# latest_return, nights). Removing one also drops its stored fares on the next run.
 
-# ── Wildcards: outstandingly cheap trips outside the two windows ────────────
+# ── Wildcards: outstandingly cheap trips outside the travel windows ────────────
 [wildcards]
 enabled          = true
 from             = 2027-01-15
