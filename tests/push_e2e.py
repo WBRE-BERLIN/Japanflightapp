@@ -172,6 +172,12 @@ def main() -> int:
         test_msg = json.loads(decrypt(RECEIVED[-1]["body"], ua_priv, auth))
         assert test_msg["title"].startswith("[Test]"), test_msg
 
+        # kill switch: with notifications off, even a forced digest sends nothing
+        (tmp / "config.php").write_text(f"<?php\nreturn [\n{php_arr},\n  'notifications' => false\n];\n")
+        n = len(RECEIVED)
+        st, r = http("GET", f"{base}/cron.php?key={cron_key}&force=daily")
+        assert st == 200 and r["sent"] == 0 and "turned off" in r["note"] and len(RECEIVED) == n, r
+
         st, r = http("POST", f"{base}/unsubscribe.php", {"endpoint": sub["endpoint"]})
         assert r["removed"] == 1
         assert (storage_dir / ".htaccess").exists()

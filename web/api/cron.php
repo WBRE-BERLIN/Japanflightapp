@@ -13,6 +13,10 @@ require __DIR__ . '/_bootstrap.php';
 require_cron_key();
 @set_time_limit(120);
 
+if (!cfg('notifications')) {
+    json_out(['ok' => true, 'note' => 'notifications are turned off (config: notifications)', 'sent' => 0]);
+}
+
 $event = (string)($_GET['event'] ?? 'tick');
 $force = (string)($_GET['force'] ?? '');
 $latest = load_data('latest.json');
