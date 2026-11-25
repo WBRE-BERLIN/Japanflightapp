@@ -29,6 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--data", required=True, type=Path)
     r.add_argument("--mode", default="auto", choices=["auto", "full", "refresh"])
     r.add_argument("--limit", type=int, default=None, help="max Google searches (testing)")
+    r.add_argument("--window", default=None, help="search only this travel window (e.g. oct)")
     r.add_argument("--debug-dir", type=Path, default=None)
     r.add_argument("--no-google", action="store_true")
     r.add_argument("--no-travelpayouts", action="store_true")
@@ -52,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "run":
         from .runner import run
         info = run(cfg, args.data, mode=args.mode, limit=args.limit, use_google=not args.no_google,
-                   use_tp=not args.no_travelpayouts, debug_dir=args.debug_dir)
+                   use_tp=not args.no_travelpayouts, debug_dir=args.debug_dir, window=args.window)
         print(json.dumps(info, indent=1))
         g = info.get("sources", {}).get("google_flights", {})
         if g and g.get("planned") and not g.get("ok") and not g.get("no_results"):

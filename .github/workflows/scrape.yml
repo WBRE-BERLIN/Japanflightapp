@@ -15,6 +15,11 @@ on:
         description: "Max. Google Flights searches (empty = no limit)"
         required: false
         default: ""
+      window:
+        description: "Only this travel window (all = normal plan)"
+        type: choice
+        options: [all, may, oct]
+        default: all
 
 permissions:
   contents: write
@@ -69,10 +74,14 @@ jobs:
         env:
           TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
           TRAVELPAYOUTS_MARKER: ${{ secrets.TRAVELPAYOUTS_MARKER }}
+          IN_LIMIT: ${{ inputs.limit }}
+          IN_MODE: ${{ inputs.mode || 'auto' }}
+          IN_WINDOW: ${{ inputs.window || 'all' }}
         run: |
-          LIMIT=""
-          if [ -n "${{ inputs.limit }}" ]; then LIMIT="--limit ${{ inputs.limit }}"; fi
-          python -m flightscan run --data ../store --mode "${{ inputs.mode || 'auto' }}" $LIMIT --debug-dir ../debug
+          ARGS=()
+          if [ -n "$IN_LIMIT" ]; then ARGS+=(--limit "$IN_LIMIT"); fi
+          if [ "$IN_WINDOW" != "all" ]; then ARGS+=(--window "$IN_WINDOW"); fi
+          python -m flightscan run --data ../store --mode "$IN_MODE" "${ARGS[@]}" --debug-dir ../debug
 
       - name: Save history to the data branch
         if: always() && hashFiles('store/latest.json') != ''

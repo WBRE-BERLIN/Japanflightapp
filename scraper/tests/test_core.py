@@ -43,7 +43,10 @@ def test_config_windows():
     assert all(r <= may.latest_return for _, r in pairs)
     oct_pairs = window_pairs(CFG.window("oct"))
     assert (dt.date(2027, 10, 21), dt.date(2027, 11, 2)) not in oct_pairs
-    assert len(window_tasks(CFG, TODAY)) == (42 + 35) * len(CFG.destinations)
+    limit = TODAY + dt.timedelta(days=CFG.scrape.max_days_ahead)
+    reachable = sum(r <= limit for _, r in pairs + oct_pairs)
+    assert len(window_tasks(CFG, TODAY)) == reachable * len(CFG.destinations)
+    assert all(t.ret <= limit for t in window_tasks(CFG, TODAY))
 
 
 def test_classify():
@@ -236,3 +239,13 @@ def test_store_drops_removed_destination(tmp_path: Path):
     assert list(store.state["offers"]) == [tyo.pair] and list(store.state["checks"]) == [tyo.pair]
     assert list(store.history["pairs"]) == [tyo.pair]
     assert sorted(store.history["daily"]["2026-11-24"]) == ["may|*", "may|TYO"]
+
+
+def test_plan_single_window(tmp_path: Path):
+    from flightscan.runner import plan
+    store = Store(tmp_path)
+    dec = dt.date(2026, 12, 10)          # every October date is within reach by then
+    tasks = plan(CFG, store, "refresh", dec, window="oct")
+    assert {t.window for t in tasks} == {"oct"} and len(tasks) == 35 * len(CFG.destinations)
+    assert len(plan(CFG, store, "refresh", dec, limit=2, window="oct")) == 2
+    assert plan(CFG, store, "refresh", TODAY, window="oct") == []   # Oct 2027 not searchable yet
